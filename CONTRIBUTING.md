@@ -1,9 +1,34 @@
 # Contributing to Wirebrain
 
-Start with a small issue describing the user problem and expected behavior. For changes, install the checkout with `python -m pip install -e .` and run `python -m unittest discover -s tests -v` plus `node --check wirebrain/static/app.js` and `node --check wirebrain/static/workflows.js`.
+Thanks for helping make AI memory useful, private, and easy to run locally.
 
-Keep runtime dependencies minimal, data local by default, and credentials out of logs, fixtures, and exports. Never introduce certificate installation, system proxy changes, external reflection calls, or shell-profile mutations without an explicit opt-in design.
+## Propose a change
 
-Provider adapters should preserve forwarded response bytes and index only supported text fields. Cover new parsing behavior with synthetic provider fixtures and a local HTTP integration test. Do not require real accounts in CI.
+Use an issue for a reproducible bug or a focused feature proposal. Use Discussions for questions and early ideas. Report vulnerabilities privately using [GitHub security advisories](https://github.com/Saireddybv/wirebrain/security/advisories/new).
 
-In a pull request, explain the user-visible change, show how to reproduce it, and include validation results. Update the README when capture support or privacy behavior changes. Dashboard contributions should preserve keyboard navigation, small-screen layouts, and safe rendering of untrusted conversation text.
+Fork this repository, create a descriptive feature branch, and open a pull request against `main`. Keep each PR focused on one problem and explain the resulting behavior and how you checked it. Draft PRs are welcome for early feedback.
+
+## Develop locally
+
+Use Python 3.11 or newer and Node.js 22 or newer for JavaScript syntax checks:
+
+```sh
+python -m venv .venv
+# Activate .venv using your operating system's activation command.
+python -m pip install -e .
+python -m unittest discover -s tests -v
+node --check wirebrain/static/app.js
+node --check wirebrain/static/workflows.js
+```
+
+For capture changes, install `python -m pip install -e ".[capture]"` and run the synthetic capture tests. For embedding changes, use `python -m pip install -e ".[capture,memory]"` and `python -m pip check`. Installing these extras does not require changing your system proxy or trusting a certificate.
+
+Keep dependencies minimal and preserve offline operation where practical. Capture must remain explicit opt-in, with clear certificate and proxy controls. Add useful regression tests for behavior changes; use synthetic provider fixtures and local HTTP integration tests. CI must not sign into real AI accounts, change a system proxy, or require private conversations.
+
+Never commit chat archives, cookies, authorization headers, tokens, local databases, certificates, private keys, or raw traffic dumps. Check screenshots and test fixtures for personal information before uploading them.
+
+## Review and merge
+
+All changes to `main` go through a PR, including maintainer changes. The required checks must pass against an up-to-date branch, and review conversations must be resolved. The repository uses squash merges and deletes merged feature branches automatically.
+
+The current sole maintainer can merge their own PR after checks pass; another person's approval is optional. Contributor PRs receive maintainer review. See [GOVERNANCE.md](GOVERNANCE.md), [SECURITY.md](SECURITY.md), and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).

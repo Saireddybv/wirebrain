@@ -1,0 +1,33 @@
+name: Bug report
+description: Report a reproducible problem in Wirebrain.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not upload real chat archives, credentials, cookies, certificates, or raw traffic dumps. Report security vulnerabilities privately using the Security tab.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Explain what you expected and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Use a synthetic example with no personal information.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Wirebrain version or commit, OS, browser or app version, and Python version.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Sanitized evidence
+      description: Optional error messages or screenshots with personal information removed.

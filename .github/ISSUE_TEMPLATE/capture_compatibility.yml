@@ -1,0 +1,40 @@
+name: AI capture compatibility
+description: Report missing or incomplete capture from an AI app or website.
+labels: [bug, capture-compatibility]
+body:
+  - type: markdown
+    attributes:
+      value: Use a fresh synthetic test chat. Never attach real conversations, request headers, cookies, tokens, certificate keys, databases, or raw network dumps.
+  - type: input
+    id: source
+    attributes:
+      label: AI service and surface
+      description: Name the service and whether it is a desktop app or website. Include the hostname, without private conversation URLs.
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions and operating system
+      description: Wirebrain version or commit, OS, and browser or desktop app version.
+    validations:
+      required: true
+  - type: dropdown
+    id: symptom
+    attributes:
+      label: What is missing?
+      options:
+        - Nothing is captured
+        - Prompt is missing or incomplete
+        - Response is missing or incomplete
+        - Conversation grouping is incorrect
+        - Other capture behavior
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Synthetic reproduction and expected result
+      description: Describe recorder status, steps, and a harmless test prompt. Share only sanitized error text.
+    validations:
+      required: true

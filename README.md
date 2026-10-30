@@ -248,3 +248,7 @@ The supported wire formats follow the official [OpenAI streaming reference](http
 ## License
 
 [MIT](LICENSE). This repository is prepared for open-source release; nothing has been published to a registry or GitHub automatically.
+
+## Community and contributions
+
+Read [Contributing](CONTRIBUTING.md) for setup and the pull request workflow, [Governance](GOVERNANCE.md) for maintainer and merge policies, and the [Code of Conduct](CODE_OF_CONDUCT.md). Ask questions in [Discussions](https://github.com/Saireddybv/wirebrain/discussions), report reproducible bugs with an issue template, and report vulnerabilities using [private security reporting](https://github.com/Saireddybv/wirebrain/security/advisories/new).

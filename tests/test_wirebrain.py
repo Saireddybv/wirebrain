@@ -51,7 +51,7 @@ class StoreTests(unittest.TestCase):
         init = dispatch(self.store, {'id': 1, 'method': 'initialize'})
         self.assertEqual(init['result']['protocolVersion'], '2025-06-18')
         self.assertIsNone(dispatch(self.store, {'method': 'notifications/initialized'}))
-        self.assertEqual(len(dispatch(self.store, {'id': 2, 'method': 'tools/list'})['result']['tools']), 2)
+        self.assertEqual({t['name'] for t in dispatch(self.store, {'id': 2, 'method': 'tools/list'})['result']['tools']}, {'search_memory','recent_memory','read_memory','context_handoff'})
         self.assertTrue(dispatch(self.store, {'id': 3, 'method': 'tools/call', 'params': {'name': 'bad'}})['result']['isError'])
 
     def test_mcp_process_stdout_is_json_only(self):
@@ -178,6 +178,20 @@ class GatewayTests(unittest.TestCase):
             forwarded = self.received[-1][0]['messages'][0]['content']
             self.assertEqual(forwarded, '[REDACTED]' if enabled else secret)
         self.assertNotIn(secret, self.store.export())
+
+    def test_system_prompt_history_and_extended_redaction(self):
+        self.config['redact_on_wire']=True
+        key='-----BEGIN PRIVATE KEY-----\nprivate-material\n-----END PRIVATE KEY-----'
+        payload={'model':'test','system':'State machine policy. '+key,'instructions':'Preserve source links.',
+                 'messages':[{'role':'user','content':'Authorization: Bearer abcdefghijklmnop'}]}
+        with self.request(self.base+'/openai/v1/chat/completions',payload,{'Authorization':'Bearer provider-auth'}):pass
+        forwarded,headers=self.received[-1]
+        self.assertNotIn('private-material',forwarded['system'])
+        self.assertNotIn('abcdefghijklmnop',forwarded['messages'][0]['content'])
+        self.assertEqual(headers['Authorization'],'Bearer provider-auth')
+        prompt=self.store.list()[0]['prompt']
+        self.assertIn('State machine policy',prompt);self.assertIn('Preserve source links',prompt)
+        self.assertNotIn('private-material',prompt)
 
     def test_upstream_errors_are_recorded(self):
         with self.assertRaises(urllib.error.HTTPError) as exc:

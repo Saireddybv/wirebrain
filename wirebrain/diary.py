@@ -42,5 +42,6 @@ def favorite(store, ident, value):
 def export_diary(store):
     with store.connect() as db:
         notes = [dict(row) for row in db.execute('SELECT * FROM diary_notes ORDER BY day')]
+        snippets = [dict(row) for row in db.execute('SELECT * FROM saved_snippets ORDER BY created')]
     return {'format':'wirebrain-diary-v1','exported_at':datetime.now(timezone.utc).isoformat(),
-            'memories':store.list(limit=1000000),'notes':notes}
+            'memories':store.list(limit=1000000),'notes':notes,'snippets':snippets}

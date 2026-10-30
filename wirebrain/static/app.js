@@ -1,6 +1,6 @@
 'use strict';
 const $ = selector => document.querySelector(selector);
-const names = {chatgpt:'ChatGPT',claude:'Claude',openai:'ChatGPT',anthropic:'Claude',groq:'Other AI'};
+const names = {chatgpt:'ChatGPT',claude:'Claude',openai:'ChatGPT',anthropic:'Claude',groq:'Groq'};
 const icons = {chatgpt:'◎',claude:'✳',openai:'◎',anthropic:'✳'};
 const localDay = date => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
 const asDate = day => new Date(day+'T12:00:00');
@@ -19,13 +19,13 @@ function groupKey(row){return row.thread_id||'unidentified:'+row.id;}
 function prettyDay(day){return asDate(day).toLocaleDateString([],{weekday:'long',day:'numeric',month:'long'});}
 function download(text,filename){const url=URL.createObjectURL(new Blob([text],{type:'text/markdown;charset=utf-8'}));const link=node('a');link.href=url;link.download=filename;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function heading(){
-  const all=view==='memories'||view==='saved';
-  const titles={diary:['Your conversations.','Good thoughts deserve a place to stay.','My diary'],memories:['A mind full of moments.','All the things you explored. All in one place.','All memories'],saved:['Worth keeping.','The thoughts you wanted to come back to.','Favorites'],review:['Your day, remembered.','A little perspective on the conversations that made your day.','A look back']};
+  const all=view==='memories'||view==='saved'||view==='tools';
+  const titles={diary:['Your conversations.','Good thoughts deserve a place to stay.','My diary'],memories:['A mind full of moments.','All the things you explored. All in one place.','All memories'],saved:['Worth keeping.','The thoughts you wanted to come back to.','Favorites'],tools:['Make more of your memories.','Keep what helped. Pick up where you left off.','Memory tools'],review:['Your day, remembered.','A little perspective on the conversations that made your day.','A look back']};
   const [title,subtitle,crumb]=titles[view];$('#title').textContent=title;$('#subtitle').textContent=subtitle;$('#breadcrumb').textContent=crumb;
   $('#day-title').textContent=all?(view==='saved'?'Your favorite memories':'Your whole diary'):prettyDay(selectedDay);
   $('#day-subtitle').textContent=all?'Across the days, across your conversations':selectedDay===today()?'Today · a page still being written':asDate(selectedDay).toLocaleDateString([],{year:'numeric'});
   $('#previous-day').hidden=all;$('#next-day').hidden=all;$('#today-button').hidden=all||selectedDay===today();
-  $('#timeline-view').hidden=view==='review';$('#review-view').hidden=view!=='review';
+  $('#timeline-view').hidden=view==='review'||view==='tools';$('#review-view').hidden=view!=='review';$('#workbench').hidden=view!=='tools';$('.date-navigation').hidden=view==='tools';$('.day-summary').hidden=view==='tools';
   $('#timeline-title').textContent=query?'What you were looking for':view==='saved'?'Your favorites':'Your collection';
   $('#timeline-description').textContent=query?'Matches from your own conversations.':view==='saved'?'Use the star beside any memory to keep it here.':'Saved as you chat, so you can stay in the moment.';
   document.querySelectorAll('.nav').forEach(el=>{el.classList.toggle('active',el.dataset.view===view);el.setAttribute('aria-current',el.dataset.view===view?'page':'false');});
@@ -111,7 +111,7 @@ async function refresh(){
     const apps=[...new Set(overview.map(row=>names[row.provider]||'AI conversation'))];$('#tools-label').textContent=apps.length?apps.join(' & '):'A fresh page';$('#tools-caption').textContent=apps.length?'A few thoughts, kept in one place.':'Your next conversation belongs here.';
     if(noteDay!==selectedDay||!noteDirty){$('#day-note').value=diary.note;noteDay=selectedDay;$('#note-status').textContent=diary.note_updated?'Saved on this computer.':'Only you can see this.';}
     setRecording(stats.capture||{});heading();renderCalendar();
-    const signature=JSON.stringify([view,selectedDay,provider,query,visibleRows,diary.note]);if(signature!==lastRender){lastRender=signature;if(view==='review')renderReview();else renderTimeline(visibleRows);}
+    const signature=JSON.stringify([view,selectedDay,provider,query,visibleRows,diary.note]);if(signature!==lastRender){lastRender=signature;if(view==='review')renderReview();else if(view!=='tools')renderTimeline(visibleRows);}
   }catch(error){showError(error);}finally{busy=false;if(pending){pending=false;refresh();}}
 }
 function canLeaveNote(){return !noteDirty||confirm('Your note has unsaved changes. Leave this day without saving?');}
@@ -164,12 +164,12 @@ for(const button of document.querySelectorAll('.nav'))button.onclick=()=>showVie
 for(const button of document.querySelectorAll('.filter'))button.onclick=()=>{provider=button.dataset.provider;document.querySelectorAll('.filter').forEach(el=>el.classList.toggle('active',el===button));revision++;lastRender='';refresh();};
 $('#close-detail').onclick=()=>$('#detail').close();
 $('#copy-entry').onclick=async()=>{try{await navigator.clipboard.writeText(active.prompt+'\n\n'+active.response);toast('Memory copied.');}catch(error){showError(error);}};
-$('#delete-entry').onclick=async()=>{if(!active||!confirm('Delete this selected memory from your diary? This cannot be undone.'))return;try{await api('/api/conversations/'+active.id,{method:'DELETE'});$('#detail').close();lastRender='';await refresh();toast('Memory deleted.');}catch(error){showError(error);}};
+$('#delete-entry').onclick=async()=>{if(!active||!confirm('Delete this selected memory from your diary? This cannot be undone.'))return;try{await api('/api/conversations/'+active.id,{method:'DELETE'});if(typeof workflowInvalidate==='function')workflowInvalidate();$('#detail').close();lastRender='';await refresh();toast('Memory deleted.');}catch(error){showError(error);}};
 $('#about-button').onclick=()=>{setMenu(false);$('#about').showModal();};$('#close-about').onclick=()=>$('#about').close();
 $('#download-day').onclick=()=>{const lines=['# '+prettyDay(selectedDay),''];if(diary.note)lines.push('## A note to myself','',diary.note,'');for(const row of [...diary.entries].reverse())lines.push('## '+(names[row.provider]||'Conversation'),'','### You',row.prompt,'','### The reply',row.response,'');download(lines.join('\n'),'my-diary-'+selectedDay+'.md');};
 window.addEventListener('beforeunload',event=>{if(noteDirty){event.preventDefault();event.returnValue='';}});
-document.addEventListener('keydown',event=>{if(event.key==='Escape')setMenu(false);if(event.key==='/'&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)&&!$('#detail').open&&!$('#about').open&&!$('#notes-sheet').open){event.preventDefault();$('#search').focus();}});
-let measuredWidth=0;new ResizeObserver(entries=>{syncMenuAccessibility();const width=entries[0].contentRect.width;if(Math.abs(width-measuredWidth)<2)return;measuredWidth=width;lastRender='';if(view!=='review')renderTimeline(visibleRows);}).observe($('.main-column'));
+document.addEventListener('keydown',event=>{if(event.key==='Escape')setMenu(false);if(event.key==='/'&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)&&!$('#detail').open&&!$('#about').open&&!$('#notes-sheet').open&&!$('#snippet-editor').open){event.preventDefault();$('#search').focus();}});
+let measuredWidth=0;new ResizeObserver(entries=>{syncMenuAccessibility();const width=entries[0].contentRect.width;if(Math.abs(width-measuredWidth)<2)return;measuredWidth=width;lastRender='';if(view!=='review'&&view!=='tools')renderTimeline(visibleRows);}).observe($('.main-column'));
 heading();refresh();setInterval(()=>{if(!document.hidden)refresh();},3000);
 
 
@@ -186,7 +186,7 @@ async function updateOverview(){
     for(const [value,label] of [[data.moments,'total moments'],[data.conversations,'conversations'],[data.favorites,'favorites'],[(data.bytes/1048576).toFixed(1)+' MB','stored locally']]){const item=node('div');item.append(node('strong','',value),node('span','',label));box.append(item);}
     const byApp={};for(const source of data.providers){const name=names[source.provider]||source.provider;byApp[name]=(byApp[name]||0)+source.count;}const sources=node('p','library-sources',Object.entries(byApp).map(([name,count])=>`${name} · ${count}`).join('   /   '));box.append(sources);
     const selected=$('#collection-filter').value;$('#collection-filter').replaceChildren(node('option','','All collections'));$('#collection-filter').firstChild.value='';
-    for(const project of data.projects){const option=node('option','',`${project.name} (${project.count})`);option.value=project.name;$('#collection-filter').append(option);}$('#collection-filter').value=selected;
+    for(const project of data.projects){const option=node('option','',`${project.name} (${project.count})`);option.value=project.name;$('#collection-filter').append(option);}$('#collection-filter').value=selected;updateWorkflowCollections(data.projects);
   }catch(error){showError(error);}
 }
 async function loadLocal(){
@@ -220,3 +220,12 @@ $('#import-history').onchange=async()=>{const file=$('#import-history').files[0]
 updateOverview();setInterval(()=>{if(!document.hidden)updateOverview();},15000);
 
 $('#prepare-search').onclick=async()=>{const button=$('#prepare-search');button.disabled=true;$('#prepare-status').textContent='Downloading and preparing the small search model. This first step needs internet; your conversations stay on this computer.';try{await post('/api/local/prepare',{});await loadLocal();$('#prepare-status').textContent='Local search is enabled. Update the memory index below to search your existing conversations.';}catch(error){$('#prepare-status').textContent=error.message;}finally{button.disabled=false;}};
+
+function updateWorkflowCollections(projects){
+  const select=$('#workflow-project'),chosen=select.value,signature=JSON.stringify(projects.map(p=>p.name));
+  if(select.dataset.projects===signature)return;select.dataset.projects=signature;
+  select.replaceChildren(node('option','','All collections'));select.firstChild.value='';
+  for(const project of projects){const option=node('option','',project.name);option.value=project.name;select.append(option);}
+  select.value=chosen;
+  if(chosen&&!projects.some(p=>p.name===chosen)&&typeof workflowInvalidate==='function')workflowInvalidate();
+}

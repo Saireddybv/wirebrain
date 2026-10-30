@@ -178,3 +178,53 @@ body, main { display: flow-root; }
 dialog { overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--subtle) transparent; }
 dialog::-webkit-scrollbar { width: 6px; }
 dialog::-webkit-scrollbar-thumb { border-radius: 8px; background: var(--subtle); }
+/* Personal memory workflows share the diary's quiet glass surfaces. */
+.workbench-intro p,.workflow-hint,.mcp-guide p { color:var(--secondary); font-size:12px; line-height:1.8; }
+.workflow-scope { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; padding:20px; border:1px solid var(--hairline); border-radius:22px; background:var(--glass); }
+.workflow-scope label,.workflow-actions>label,#snippet-form>label { display:flex; flex-direction:column; gap:7px; font-size:11px; color:var(--secondary); min-width:0; }
+.workflow-scope input,.workflow-scope select,.workflow-actions select,.workflow-actions input[type=search],#snippet-form input,#snippet-form textarea { width:100%; min-width:0; border:1px solid var(--hairline); background:var(--base); color:var(--text); border-radius:12px; padding:10px; font:inherit; font-size:12px; }
+.workflow-periods { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 24px; }
+.workflow-periods button { border:1px solid var(--hairline); border-radius:18px; padding:7px 12px; color:var(--secondary); background:var(--glass); font-size:10px; }
+.workflow-tabs { display:flex; width:100%; min-width:0; gap:5px; padding:5px; border:1px solid var(--hairline); border-radius:19px; background:var(--soft); overflow-x:auto; scrollbar-width:thin; }
+.workflow-tabs button { flex:1; white-space:nowrap; padding:12px 14px; border:0; border-radius:14px; background:none; color:var(--secondary); font-size:12px; }
+.workflow-tabs button[aria-selected=true] { background:var(--card); box-shadow:var(--shadow); color:var(--blue); }
+.workflow-tabs button:focus-visible { outline-offset:-2px; }
+.workflow-status { color:var(--secondary); font-size:12px; line-height:1.7; margin:20px 0; overflow-wrap:anywhere; }
+.workflow-actions { display:flex; align-items:end; flex-wrap:wrap; gap:12px; margin:16px 0; }
+.workflow-actions .workflow-check { flex-direction:row; align-items:center; gap:7px; line-height:1.6; }
+.workflow-check input { flex-shrink:0; }
+.workflow-result { padding:24px; border:1px solid var(--hairline); background:var(--glass); border-radius:24px; margin-top:20px; overflow-wrap:anywhere; }
+.workflow-result:empty { display:none; }
+.workflow-result .message-text { font-size:13px; }
+.workflow-sources h3,#learning-topics h3 { font-size:16px; margin-top:28px; }
+.learning-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+.learning-card { border:1px solid var(--hairline); border-radius:22px; padding:20px; background:var(--glass); }
+.learning-card strong,.learning-card span { display:block; }
+.learning-card strong { font-size:17px; text-transform:capitalize; letter-spacing:-.4px; }
+.learning-card span { color:var(--blue); font-size:10px; margin-top:8px; }
+.learning-card p { font-size:12px; color:var(--secondary); line-height:1.8; }
+.mcp-guide { margin:26px 0; padding-top:20px; border-top:1px solid var(--hairline); }
+.mcp-guide summary,.comparison-diff summary { font-size:12px; color:var(--blue); cursor:pointer; }
+.mcp-guide pre,.comparison-diff pre { font:11px/1.8 Consolas,monospace; white-space:pre-wrap; overflow-wrap:anywhere; }
+.snippet-card { padding:24px; margin:18px 0; border:1px solid var(--hairline); border-radius:24px; background:var(--glass); min-width:0; }
+.snippet-card h3 { font-size:18px; letter-spacing:-.5px; margin:0 0 12px; overflow-wrap:anywhere; }
+.snippet-code,.comparison-card pre { max-height:440px; overflow:auto; padding:16px; border:1px solid var(--hairline); border-radius:15px; background:var(--soft); font:12px/1.75 Consolas,monospace; white-space:pre-wrap; overflow-wrap:anywhere; }
+.comparison-columns { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.comparison-card { min-width:0; padding:20px; border:1px solid var(--hairline); border-radius:22px; background:var(--glass); }
+.comparison-card h3 { font-size:17px; margin-top:0; }
+.comparison-card h4 { font-size:12px; font-weight:600; }
+.comparison-diff { padding:16px 0; border-bottom:1px solid var(--hairline); }
+.usage-table-wrap { overflow-x:auto; max-width:100%; border:1px solid var(--hairline); border-radius:18px; }
+.usage-table { border-collapse:collapse; min-width:640px; width:100%; font-size:11px; text-align:left; }
+.usage-table th,.usage-table td { padding:13px; border-bottom:1px solid var(--hairline); overflow-wrap:anywhere; max-width:240px; }
+.usage-table th { color:var(--secondary); font-weight:500; }
+#snippet-editor { width:min(600px,94vw); }
+#snippet-form>label { margin-bottom:16px; }
+#snippet-form textarea { min-height:220px; resize:vertical; line-height:1.7; }
+#snippet-save-status { color:var(--secondary); font-size:12px; line-height:1.7; }
+@media(max-width:1100px) { .workflow-scope { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:600px) { .workflow-scope { padding:16px; gap:12px; }.workflow-tabs button {font-size:10px;padding:10px 11px}.learning-grid,.comparison-columns {grid-template-columns:1fr}.workflow-actions {align-items:stretch}.workflow-actions>label {flex:1 1 140px}.workflow-actions .workflow-check {flex-basis:100%}.workflow-result,.snippet-card {padding:18px}.workflow-hint {font-size:11px} }
+#workbench { min-width:0; overflow-wrap:anywhere; }
+.workflow-source-list { margin:24px 0; padding-top:16px; border-top:1px solid var(--hairline); }
+.workflow-source-list summary { font-size:12px; color:var(--blue); cursor:pointer; }
+@media(max-width:600px) { .workflow-scope input,.workflow-scope select,.workflow-actions select,.workflow-actions input[type=search],#snippet-form input,#snippet-form textarea {font-size:16px} }

@@ -53,3 +53,17 @@ class MemoryApiTests(unittest.TestCase):
         with self.assertRaises(urllib.error.HTTPError) as error:self.request('/api/local/settings',{},'https://other.example')
         self.assertEqual(error.exception.code,403)
         self.assertEqual(self.request('/api/memory/overview')['moments'],1)
+
+    def test_workflow_endpoints_and_mcp_configuration(self):
+        with self.store.connect() as db:db.execute('UPDATE conversations SET created=? WHERE id=?',('2026-10-30T10:00:00+00:00',self.ident))
+        selection={'date_from':'2026-10-30','date_to':'2026-10-30','project':'Business'}
+        result=self.request('/api/workflows/report',{**selection,'kind':'study'})
+        self.assertIn('Client acquisition',result['body']);self.assertFalse(result['generated'])
+        self.request('/api/workflows/save-snippet',{'exchange_id':self.ident,'title':'Referral idea','content':'Consider referrals','language':'note'})
+        self.assertTrue(self.request('/api/workflows/snippets',selection)['snippets'][0]['saved'])
+        self.assertEqual(self.request('/api/workflows/usage',selection)['reported'],0)
+        config=self.request('/api/workflows/mcp-config',selection)
+        self.assertEqual(config['mcpServers']['wirebrain']['args'][-2:],['--project','Business'])
+        with self.opener.open(self.base+'/workflows.js') as response:self.assertEqual(response.status,200)
+        with self.assertRaises(urllib.error.HTTPError) as error:self.request('/api/workflows/report',{'date_from':'invalid','date_to':'2026-10-30'})
+        self.assertEqual(error.exception.code,400)

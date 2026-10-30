@@ -30,11 +30,11 @@ def seed(store):
 
 
 def main():
-    for stream in (sys.stdout, sys.stderr):
+    for stream in (sys.stdin, sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description="Wirebrain — your AI work, remembered locally")
-    parser.add_argument("--home", default=os.environ.get("WIREBRAIN_HOME", str(Path.home() / ".wirebrain")))
+    parser.add_argument("--home", default=os.environ.get("WIREBRAIN_HOME") or str(Path.home() / ".wirebrain"))
     commands = parser.add_subparsers(dest="command", required=True)
     init = commands.add_parser("init", help="Create a local database and config")
     init.add_argument("--demo", action="store_true", help="Add clearly labeled sample conversations")
@@ -44,7 +44,17 @@ def main():
     up.add_argument("--dashboard-port", type=int)
     up.add_argument("--redact-on-wire", action="store_true", help="Also redact detected secrets before forwarding prompts")
     commands.add_parser("demo", help="Add labeled sample data (makes no AI requests)")
-    commands.add_parser("mcp", help="Run the read-only MCP stdio server")
+    mcp = commands.add_parser("mcp", help="Run the read-only MCP stdio server")
+    mcp.add_argument('--project',default='',help='Restrict every memory tool to this collection')
+    reports = commands.add_parser('report',help='Export a source-linked personal workflow as Markdown')
+    reports.add_argument('--kind',choices=['weekly','standup','study','timeline','research','handoff'],default='weekly')
+    reports.add_argument('--from',dest='date_from')
+    reports.add_argument('--to',dest='date_to')
+    reports.add_argument('--project',default='')
+    reports.add_argument('--provider',default='')
+    reports.add_argument('--offset',type=int,default=0,help='Timezone offset in minutes east of UTC')
+    reports.add_argument('--generate',action='store_true',help='Use the configured local writing model')
+    reports.add_argument('--output',type=Path)
     commands.add_parser("doctor", help="Check local storage and configuration")
     capture = commands.add_parser("capture", help="Capture existing ChatGPT/Claude HTTPS traffic; no provider API key needed")
     capture.add_argument("--port", type=int, default=8082)
@@ -91,7 +101,12 @@ def main():
             print("Previous proxy settings restored.")
         elif args.command == "mcp":
             from .mcp import run
-            run(store)
+            run(store,args.project)
+        elif args.command == 'report':
+            from .workflows import report
+            result = report(store,vars(args))
+            if args.output: args.output.write_text(result['body'],encoding='utf-8')
+            else: print(result['body'])
         elif args.command == "search":
             print(json.dumps(store.list(args.query), indent=2, ensure_ascii=False))
         elif args.command == "reflect":

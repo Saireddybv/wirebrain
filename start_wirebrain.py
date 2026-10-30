@@ -8,6 +8,13 @@ import urllib.request
 import webbrowser
 
 
+def diary_home(root):
+    """Keep an existing checkout diary visible when upgrading the source launcher."""
+    existing = Path(root)/'.wirebrain'
+    default = existing if (existing/'memory.sqlite3').is_file() else Path.home()/'.wirebrain'
+    return Path(os.environ.get('WIREBRAIN_HOME') or default).resolve()
+
+
 def main():
     if sys.version_info < (3,11): raise SystemExit('Install Python 3.11 or newer first: https://python.org/downloads/')
     root = Path(__file__).resolve().parent
@@ -19,7 +26,7 @@ def main():
     if not marker.exists():
         subprocess.run([str(python),'-m','pip','install','-e',str(root)+'[capture,memory]'],check=True)
         marker.touch()
-    home = Path(os.environ.get('WIREBRAIN_HOME',str(Path.home()/'.wirebrain'))).resolve()
+    home = diary_home(root)
     base = [str(python),'-m','wirebrain','--home',str(home)]
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     try:

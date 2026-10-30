@@ -2,4 +2,10 @@ include start_wirebrain.py
 include Start-Wirebrain.ps1
 include Start-Wirebrain.command
 include LICENSE
+include .gitignore
+include .gitattributes
+include CONTRIBUTING.md
+include SECURITY.md
+include ROADMAP.md
 recursive-include docs *.md
+recursive-include tests *.py

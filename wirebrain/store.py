@@ -10,7 +10,11 @@ from pathlib import Path
 
 
 def redact(text):
-    patterns = [r"\bsk-[A-Za-z0-9_-]{12,}", r"\bgsk_[A-Za-z0-9]{12,}",
+    patterns = [r"(?s)-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY-----.*?-----END (?:[A-Z0-9]+ )*PRIVATE KEY-----",
+                r"(?i)\bBearer\s+[A-Za-z0-9._~+/-]{8,}=*",
+                r"\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b",
+                r"\bgithub_pat_[A-Za-z0-9_]{20,}",
+                r"\bsk-[A-Za-z0-9_-]{12,}", r"\bgsk_[A-Za-z0-9]{12,}",
                 r"\bgh[pousr]_[A-Za-z0-9]{20,}", r"\bAKIA[A-Z0-9]{16}\b",
                 r"(?i)(?:api[_-]?key|password|secret|token)\s*[=:]\s*['\"]?[^\s'\",;]{8,}"]
     for pattern in patterns:
@@ -54,7 +58,17 @@ class Store:
                 CREATE TABLE IF NOT EXISTS intelligence_settings (id INTEGER PRIMARY KEY CHECK(id=1), body TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS memory_vectors (exchange_id TEXT, model TEXT, part INTEGER, hash TEXT, vector TEXT, PRIMARY KEY(exchange_id,model,part));
                 CREATE TABLE IF NOT EXISTS entry_flags (exchange_id TEXT PRIMARY KEY, favorite INTEGER DEFAULT 0);
+                CREATE TABLE IF NOT EXISTS usage_metadata (exchange_id TEXT PRIMARY KEY, reported INTEGER NOT NULL DEFAULT 0,
+                  input_reported INTEGER NOT NULL DEFAULT 0, output_reported INTEGER NOT NULL DEFAULT 0);
+                CREATE TABLE IF NOT EXISTS saved_snippets (id TEXT PRIMARY KEY, exchange_id TEXT NOT NULL,
+                  title TEXT NOT NULL, content TEXT NOT NULL, language TEXT NOT NULL, created TEXT NOT NULL);
             """)
+            db.execute('BEGIN IMMEDIATE')
+            columns = {row['name'] for row in db.execute('PRAGMA table_info(usage_metadata)')}
+            for field, counter in (('input_reported','input_tokens'),('output_reported','output_tokens')):
+                if field not in columns:
+                    db.execute(f'ALTER TABLE usage_metadata ADD COLUMN {field} INTEGER NOT NULL DEFAULT 0')
+                    db.execute(f'UPDATE usage_metadata SET {field}=1 WHERE exchange_id IN (SELECT id FROM conversations WHERE {counter}>0)')
 
     @contextmanager
     def connect(self):
@@ -77,11 +91,16 @@ class Store:
 
     def update(self, ident, response, status="complete", usage=None):
         usage = usage or {}
+        reported = [usage.get('input_tokens',usage.get('prompt_tokens')),
+                    usage.get('output_tokens',usage.get('completion_tokens'))]
+        reported = [value if isinstance(value,int) and not isinstance(value,bool) and value>=0 else None for value in reported]
         with self.connect() as db:
-            db.execute("UPDATE conversations SET response=?,status=?,input_tokens=?,output_tokens=? WHERE id=?",
-                       (redact(response), status, usage.get("input_tokens", usage.get("prompt_tokens", 0)) or 0,
-                        usage.get("output_tokens", usage.get("completion_tokens", 0)) or 0, ident))
+            db.execute("UPDATE conversations SET response=?,status=?,input_tokens=coalesce(?,input_tokens),output_tokens=coalesce(?,output_tokens) WHERE id=?",
+                       (redact(response), status, *reported, ident))
             db.execute("UPDATE memory_fts SET response=? WHERE id=?", (redact(response), ident))
+            if any(value is not None for value in reported):
+                db.execute('INSERT INTO usage_metadata VALUES (?,1,?,?) ON CONFLICT(exchange_id) DO UPDATE SET reported=1,input_reported=max(usage_metadata.input_reported,excluded.input_reported),output_reported=max(usage_metadata.output_reported,excluded.output_reported)',
+                           (ident,int(reported[0] is not None),int(reported[1] is not None)))
 
     def link_exchange(self, ident, provider, conversation_id="", message_id="", parent_message_id="", response_message_id="", title=""):
         # Namespace IDs by service; a project name or similar prompt is never a chat ID.
@@ -144,13 +163,18 @@ class Store:
             self.link_exchange(ident, 'chatgpt', conversation_id, pair.get('message_id'), pair.get('parent_message_id'), pair.get('response_message_id'), data.get('title', ''))
         return repaired
 
-    def list(self, query="", limit=100, day=None, thread_id=None, exchange_id=None, day_offset=0, favorites=False):
+    def list(self, query="", limit=100, day=None, thread_id=None, exchange_id=None, day_offset=0, favorites=False,
+             date_from=None, date_to=None, provider='', project='', model=''):
         with self.connect() as db:
             args = []
             sql = """SELECT c.*,coalesce(flags.favorite,0) AS favorite,e.thread_id,e.message_id,e.parent_message_id,e.response_message_id,
-                     t.conversation_id,t.title AS thread_title,t.source_url FROM conversations c
+                     t.conversation_id,t.title AS thread_title,t.source_url,
+                     coalesce(u.reported,CASE WHEN c.input_tokens>0 OR c.output_tokens>0 THEN 1 ELSE 0 END) AS usage_reported,
+                     coalesce(u.input_reported,CASE WHEN c.input_tokens>0 THEN 1 ELSE 0 END) AS input_reported,
+                     coalesce(u.output_reported,CASE WHEN c.output_tokens>0 THEN 1 ELSE 0 END) AS output_reported FROM conversations c
                      LEFT JOIN exchange_threads e ON c.id=e.exchange_id LEFT JOIN threads t ON e.thread_id=t.id
-                     LEFT JOIN entry_flags flags ON flags.exchange_id=c.id"""
+                     LEFT JOIN entry_flags flags ON flags.exchange_id=c.id
+                     LEFT JOIN usage_metadata u ON u.exchange_id=c.id"""
             if query:
                 words = re.findall(r"\w+", query, re.UNICODE)[:24]
                 if not words:
@@ -164,6 +188,21 @@ class Store:
                 args.extend((f"{int(day_offset)} minutes", day))
             if favorites:
                 sql += " AND flags.favorite=1"
+            for boundary, operator in ((date_from, '>='), (date_to, '<=')):
+                if boundary:
+                    sql += f' AND date(c.created,?) {operator} ?'
+                    args.extend((f'{int(day_offset)} minutes', boundary))
+            if provider:
+                aliases = {'chatgpt': ('chatgpt','openai'), 'claude': ('claude','anthropic')}
+                values = aliases.get(provider, (provider,))
+                sql += ' AND c.provider IN (' + ','.join('?' for _ in values) + ')'
+                args.extend(values)
+            if project:
+                sql += ' AND c.project=?'
+                args.append(project)
+            if model:
+                sql += ' AND c.model=?'
+                args.append(model)
             if thread_id:
                 sql += " AND e.thread_id=?"
                 args.append(thread_id)
@@ -181,6 +220,8 @@ class Store:
             db.execute("DELETE FROM memory_vectors WHERE exchange_id=?", (ident,))
             db.execute("DELETE FROM exchange_threads WHERE exchange_id=?", (ident,))
             db.execute("DELETE FROM entry_flags WHERE exchange_id=?", (ident,))
+            db.execute('DELETE FROM usage_metadata WHERE exchange_id=?', (ident,))
+            db.execute('DELETE FROM saved_snippets WHERE exchange_id=?', (ident,))
             db.execute("DELETE FROM threads WHERE id NOT IN (SELECT thread_id FROM exchange_threads WHERE thread_id IS NOT NULL)")
             # Derived summaries may contain deleted content; invalidate all of them.
             db.execute("DELETE FROM reflections")

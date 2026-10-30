@@ -11,7 +11,8 @@ The first milestone is a dependable, inspectable local API memory gateway. The o
 - [x] Optional CPU/local Ollama embeddings, incremental index, and hybrid semantic retrieval
 - [x] Optional source-linked local-LLM answers and daily reflections
 - [ ] Confirmable structured decisions and open loops
-- [ ] Knowledge-gap coaching and weekly digests
+- [x] Source-backed weekly digests and recurring-topic learning prompts
+- [ ] Interactive learning exercises with user-confirmed progress
 - [x] Source chat grouping, editable collections, and repeat-import deduplication
 - [ ] Retention controls and broader capture deduplication
 - [ ] Configurable provider/model price tables and budget enforcement
@@ -25,3 +26,8 @@ Browser capture must not silently install a root CA. A future interception adapt
 - [x] Source launchers for Windows/macOS and in-app local setup
 - [x] macOS trust/proxy adapter with simulated restoration tests
 - [ ] Real macOS capture verification and signed/notarized desktop installers
+
+- [x] Filtered MCP handoff, collection isolation, and paged original-source reads
+- [x] Snippet vault, diary backup/restore of snippets, and source-linked Markdown exports
+- [x] Standup/study/research/timeline reports and side-by-side prompt/model comparisons
+- [x] Usage reporting with per-field availability and exclusion of sample totals

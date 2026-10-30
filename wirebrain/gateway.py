@@ -59,16 +59,33 @@ def handler_factory(store, config, dashboard=False, upstreams=None):
         def log_message(self, *_):
             pass  # Never log URLs, bodies, or credentials.
 
+        def reject_local(self, message):
+            # Closing a Windows socket with a small unread POST body can reset it
+            # before the client receives the denial. Discard bounded bytes only;
+            # never parse, store, or act on a rejected request.
+            if self.command == 'POST':
+                previous = self.connection.gettimeout()
+                try:
+                    length = int(self.headers.get('Content-Length','0'))
+                    if 0 < length <= MAX_BODY:
+                        self.connection.settimeout(.5)
+                        while length:
+                            chunk = self.rfile.read(min(length,65536))
+                            if not chunk: break
+                            length -= len(chunk)
+                except (OSError,ValueError): pass
+                finally: self.connection.settimeout(previous)
+            self.reply({'error':message},403)
+            return False
+
         def guard(self):
             host = self.headers.get("Host", "").split(":")[0]
             origin = self.headers.get("Origin")
             allowed = {"127.0.0.1", "localhost"}
             if host not in allowed:
-                self.reply({"error": "Invalid local host"}, 403)
-                return False
+                return self.reject_local('Invalid local host')
             if origin and origin not in {f"http://{h}:{config['dashboard_port']}" for h in allowed}:
-                self.reply({"error": "Cross-origin request denied"}, 403)
-                return False
+                return self.reject_local('Cross-origin request denied')
             return True
 
         def reply(self, value, status=200, mime="application/json"):
@@ -143,7 +160,7 @@ def handler_factory(store, config, dashboard=False, upstreams=None):
             if path.path == '/api/diary/export':
                 from .diary import export_diary
                 return self.reply(json.dumps(export_diary(store),ensure_ascii=False),mime='application/octet-stream')
-            assets = {"/": "index.html", "/app.js": "app.js", "/style.css": "style.css"}
+            assets = {"/": "index.html", "/app.js": "app.js", "/style.css": "style.css", "/workflows.js": "workflows.js"}
             if path.path in assets:
                 asset = assets[path.path]
                 mime = {"html": "text/html", "js": "application/javascript", "css": "text/css"}[asset.split(".")[-1]]
@@ -168,6 +185,27 @@ def handler_factory(store, config, dashboard=False, upstreams=None):
             except (ValueError, UnicodeDecodeError):
                 return self.reply({"error": "Invalid JSON body (maximum 8 MB)"}, 400)
             if dashboard:
+                if self.path.startswith('/api/workflows/'):
+                    from .workflows import report, snippets, save_snippet, remove_snippet, compare, usage, select, scope
+                    action = self.path.rsplit('/',1)[-1]
+                    try:
+                        if action == 'report': return self.reply(report(store,payload))
+                        if action == 'snippets': return self.reply({'snippets':snippets(store,payload)})
+                        if action == 'save-snippet': return self.reply(save_snippet(store,payload))
+                        if action == 'remove-snippet': return self.reply(remove_snippet(store,payload))
+                        if action == 'mcp-config':
+                            import sys
+                            project = scope(payload)['project']
+                            args = ['-m','wirebrain','--home',str(store.home.resolve()),'mcp']
+                            if project: args += ['--project',project]
+                            return self.reply({'mcpServers':{'wirebrain':{'command':sys.executable,'args':args}}})
+                        if action == 'compare': return self.reply(compare(store,payload))
+                        if action == 'usage': return self.reply(usage(store,payload))
+                        if action == 'candidates':
+                            rows = select(store,payload)
+                            return self.reply({'rows':[{**{key:r[key] for key in ('id','created','provider','model','project')},'prompt':r['prompt'][:300]} for r in rows]})
+                        return self.reply({'error':'Unknown workflow'},404)
+                    except (ValueError,TypeError) as exc: return self.reply({'error':str(exc)},400)
                 if self.path == '/api/local/prepare':
                     from .intelligence import prepare_native
                     try: return self.reply(prepare_native(store))
@@ -217,6 +255,9 @@ def handler_factory(store, config, dashboard=False, upstreams=None):
                 prompt = "\n\n".join(f"{m.get('role', 'user')}: {content_text(m.get('content', ''))}" for m in messages if isinstance(m, dict))
             else:
                 prompt = content_text(messages)
+            for field in ('system','instructions'):
+                context = content_text(payload.get(field,''))
+                if context: prompt = field + ': ' + context + '\n\n' + prompt
             ident = store.add(provider, str(payload.get("model", "unknown")), prompt,
                               self.headers.get("X-Wirebrain-Project", "Inbox"))
             # Serialize then redact string leaves only, preserving valid JSON and types.

@@ -4,7 +4,7 @@
 
 Validated on Windows with Python 3.11 and the optional capture/search dependencies:
 
-- All 58 tests passed, including the real local HTTPS interception test.
+- All 77 tests passed, including the real local HTTPS interception test.
 - `node --check wirebrain/static/app.js` passed.
 - `python -m pip check` reported no broken requirements.
 - Source and wheel packages built successfully. The source archive includes launchers and excludes local diaries, virtual environments, certificates, screenshots, and downloaded models.
@@ -39,6 +39,30 @@ python -m pip install -e '.[capture,memory]'
 python -m pip check
 python -m unittest discover -s tests -v
 node --check wirebrain/static/app.js
+node --check wirebrain/static/workflows.js
 ```
 
 CI defines core tests on Linux, Windows, and macOS, a Windows HTTPS capture job, and combined capture/search runtime import checks on all three platforms. Configured CI jobs are not evidence of a completed remote run.
+
+
+## Memory workflows — 2026-10-31
+
+Story: select dates/app/collection in Memory tools → local workflow API → scoped SQLite records → report/snippet/comparison/usage result → original-source opening or Markdown export.
+
+| Boundary | Result | Evidence |
+| --- | --- | --- |
+| UI → API → report | Passed | Weekly report created from the existing diary; study-guide Markdown downloaded through the browser |
+| Collection isolation | Passed | A sample Learning report excluded Personal conversations and unassigned personal notes |
+| Snippet persistence | Passed | Fenced code detected; kept/custom excerpts saved through the browser and refreshed immediately; JSON round-trip and source deletion covered by tests |
+| Prompt/model comparison | Passed | Two recorded model variants rendered side by side with prompt/reply differences |
+| Usage availability | Passed | Unknown fields remained Unknown; samples excluded; explicit zero, partial field reporting, and older metadata migration covered by tests |
+| MCP process | Passed | A real stdio subprocess restricted recent-memory output to its configured collection; paged original reads and scope-escape rejection covered by tests |
+| CLI reports | Passed | Collection-scoped study-guide export contained selected Q&A and excluded personal context |
+| Responsive layout | Passed in Chromium preview | No horizontal page overflow at observed phone (325×703), tablet (853×750), and desktop (1440×900) CSS viewports; new mobile form controls use 16px text |
+| Optional writing model | Configuration/error path verified | Missing model produced an actionable message; generated-report sampling and source coverage tested with a mocked local service |
+
+The complete capture-enabled suite passed 77 tests, including real local HTTPS interception, and both frontend JavaScript files passed syntax checks. New tests cover recurrence counts, scope boundaries, report formats, handoff limits, snippet backup/restore, comparisons, per-field usage, gateway system/instructions capture and redaction, and launcher upgrade/home selection.
+
+One Windows rejection-path test exposed a connection-close race with unread POST bytes. Rejected bodies are now discarded within bounded size/time limits before the denial response, without parsing or acting on them. The regression suite passed after the fix.
+
+Browser write tests used an isolated sample diary on a separate port; no sample records were inserted into the real diary. Screenshots and generated reports remain in ignored local storage. The Mac/Safari and real writing-model boundaries stated above still apply. GitHub Actions are configured to syntax-check both frontend scripts.

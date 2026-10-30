@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wirebrain-local"
+version = "0.1.0"
+description = "A local-first memory gateway for your AI conversations"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+dependencies = []
+
+[project.optional-dependencies]
+capture = ["mitmproxy>=11,<12"]
+memory = ["fastembed>=0.7,<0.8", "huggingface-hub>=0.20,<1.0"]
+
+[project.scripts]
+wirebrain = "wirebrain.cli:main"
+
+[tool.setuptools.package-data]
+wirebrain = ["static/*"]

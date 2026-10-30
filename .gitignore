@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+.venv-capture/
+.venv-*/
+.wirebrain/
+.env
+.env.*
+*.sqlite*
+# Local screenshots can contain private conversations. Add public previews explicitly.
+/docs/*.png

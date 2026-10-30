@@ -1,0 +1,5 @@
+include start_wirebrain.py
+include Start-Wirebrain.ps1
+include Start-Wirebrain.command
+include LICENSE
+recursive-include docs *.md

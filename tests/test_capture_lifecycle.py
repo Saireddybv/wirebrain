@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from wirebrain.capture import reset_proxy, set_proxy
+from wirebrain.capture import reset_proxy, set_proxy, recover_proxy
 from wirebrain.store import Store
 
 
@@ -24,6 +24,26 @@ class CaptureStateTests(unittest.TestCase):
             self.assertTrue(store.capture_stop())
             store.capture_stop(False)
             self.assertFalse(store.capture_stop())
+
+
+class RecoveryTests(unittest.TestCase):
+    def test_abandoned_proxy_restored_only_when_listener_refuses(self):
+        with tempfile.TemporaryDirectory() as directory:
+            (Path(directory)/'proxy-backup.json').write_text('{}')
+            with patch('wirebrain.capture.socket.create_connection', side_effect=ConnectionRefusedError), patch('wirebrain.capture.reset_proxy') as reset:
+                recover_proxy(directory)
+                reset.assert_called_once_with(directory)
+
+    def test_live_or_uncertain_listener_never_restored(self):
+        with tempfile.TemporaryDirectory() as directory:
+            (Path(directory)/'proxy-backup.json').write_text('{}')
+            with patch('wirebrain.capture.socket.create_connection') as connection, patch('wirebrain.capture.reset_proxy') as reset:
+                with self.assertRaisesRegex(ValueError,'still listening'): recover_proxy(directory)
+                connection.return_value.close.assert_called_once()
+                reset.assert_not_called()
+            with patch('wirebrain.capture.socket.create_connection', side_effect=TimeoutError), patch('wirebrain.capture.reset_proxy') as reset:
+                with self.assertRaisesRegex(ValueError,'Could not verify'): recover_proxy(directory)
+                reset.assert_not_called()
 
 
 @unittest.skipUnless(os.name == 'nt', 'Windows registry lifecycle')
@@ -49,13 +69,17 @@ class WindowsProxyTests(unittest.TestCase):
              patch.object(winreg, 'QueryValueEx', side_effect=query), \
              patch.object(winreg, 'SetValueEx', side_effect=write), \
              patch.object(winreg, 'DeleteValue', side_effect=delete), \
-             patch('wirebrain.capture.notify_windows'):
+             patch('wirebrain.capture.notify_windows'), \
+             patch('wirebrain.capture.connection_options', return_value=9) as options:
             set_proxy(directory, 8082)
             self.assertEqual(current['ProxyServer'][0], '127.0.0.1:8082')
             self.assertEqual(current['ProxyEnable'][0], 1)
             with self.assertRaises(ValueError): set_proxy(directory, 8083)
             backup = json.loads((Path(directory) / 'proxy-backup.json').read_text())
             self.assertEqual(backup['ProxyServer'][0], 'old.proxy:3128')
+            self.assertEqual(backup['_connection_flags'], 9)
+            options.assert_any_call(3, '127.0.0.1:8082', 'localhost;127.*;<local>')
             reset_proxy(directory)
+            options.assert_any_call(9, 'old.proxy:3128', '')
             self.assertEqual(current, original)
             self.assertFalse((Path(directory) / 'proxy-backup.json').exists())

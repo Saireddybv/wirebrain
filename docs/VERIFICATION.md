@@ -66,3 +66,18 @@ The complete capture-enabled suite passed 77 tests, including real local HTTPS i
 One Windows rejection-path test exposed a connection-close race with unread POST bytes. Rejected bodies are now discarded within bounded size/time limits before the denial response, without parsing or acting on them. The regression suite passed after the fix.
 
 Browser write tests used an isolated sample diary on a separate port; no sample records were inserted into the real diary. Screenshots and generated reports remain in ignored local storage. The Mac/Safari and real writing-model boundaries stated above still apply. GitHub Actions are configured to syntax-check both frontend scripts.
+
+
+## Additional website adapters — 2026-10-31
+
+The capture-enabled suite passes **104 tests**, including the existing real local HTTPS interception test expanded to five HTTP website formats. Both frontend scripts pass Node syntax checks.
+
+Live Chrome verification on this PC confirmed:
+
+- Meta AI: submitted prompt and complete answer through DGW binary WebSocket frames, with the real conversation UUID.
+- Grok: submitted user item inside `response.create`, message-gateway text chunks, correct chat ID, and matching history repair. Empty `output_text.done` does not erase streamed text.
+- Gemini: submitted prompt through the newer dedicated WebChannel host, full protobuf answer snapshot and terminal marker, stable reply-ID matching, and correct source chat link. Frame counters are not used as turn IDs.
+
+Protocol fixtures cover fragmentation, malformed inputs, response byte preservation, privacy of diagnostics, distinct chat/channel isolation, and unsupported/partial outcomes. Only supported answer fields are extracted; reasoning and tool payloads are excluded. No provider credentials are copied into fixtures or documentation.
+
+These checks verify the observed Chrome website sessions. Physical macOS/Safari capture, native Gemini/Grok/Meta apps, embedded AI inside social or messaging apps, voice, and image/file contents were not verified by this change. New adapters remain experimental because private website protocols can change. See [capture coverage](CAPTURE-COVERAGE.md).

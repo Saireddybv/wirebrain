@@ -1,10 +1,8 @@
-# Wirebrain — Local AI Memory for ChatGPT and Claude
+# Wirebrain
 
-**A personal diary for your AI conversations. Git tracks your code; Wirebrain keeps the thinking around it.**
+**A personal diary for your AI conversations.**
 
-An open-source, local-first AI memory tool that turns your conversations into searchable personal memory. Keep ChatGPT and Claude conversations in a local SQLite archive, search by keywords or meaning, and share selected context with MCP-compatible coding assistants. Includes a personal diary dashboard and optional HTTPS capture for supported existing sessions. MIT licensed. No analytics or frontend build step.
-
-[Project website](https://saireddybv.github.io/wirebrain/) · [Get started](#start-from-a-downloaded-checkout) · [Capture compatibility](docs/HTTPS_CAPTURE.md) · [Contribute](CONTRIBUTING.md)
+A local conversation recorder that turns your AI work into searchable personal memory. SQLite storage, a quiet dashboard, and an optional HTTPS capture service for your existing ChatGPT, Claude, Gemini, Grok, and Meta AI website sessions. MIT licensed. No analytics or frontend build step.
 
 - Keep supported ChatGPT, Claude, and optional API conversations in one local archive.
 - Let an MCP-compatible coding assistant search the context you discussed elsewhere.
@@ -12,6 +10,12 @@ An open-source, local-first AI memory tool that turns your conversations into se
 
 
 > **Experimental:** Existing-app capture is now implemented using an allowlisted HTTPS proxy. It needs explicit local certificate trust and proxy setup. Offline protocol and TLS integration tests pass; this does not establish compatibility with every live app release. No provider API keys are required for this mode.
+
+### Additional AI websites (experimental)
+
+The local recorder now includes text adapters for **Gemini** (`gemini.google.com`), **Grok** (`grok.com`), and **Meta AI HTTP/GraphQL and binary DGW WebSocket** chat transports (`meta.ai`). These use your existing browser session; no provider API key or copied cookies are needed. Gemini and Grok appear in the diary and Memory tools app filters, and captured conversation IDs keep their threads separate.
+
+**Gemini WebChannel, Grok message gateway, and Meta DGW capture have been verified with real Chrome exchanges.** Legacy Gemini StreamGenerate, Grok HTTP, and Meta HTTP adapters are also retained for older website rollouts. WhatsApp, Facebook, Instagram, X-embedded Grok, voice, image contents, and file contents are not covered by these adapters. These are private web protocols and can change; local protocol/TLS tests do not prove compatibility with every live account. See [capture coverage](docs/CAPTURE-COVERAGE.md).
 
 ## Start from a downloaded checkout
 
@@ -28,7 +32,7 @@ This is a source launcher, not a signed desktop installer. Python and internet a
 
 - **Search by words or meaning:** choose the search mode in your collection. Meaning search uses a small optional FastEmbed model on the CPU, or a local Ollama embedding model. Keyword results are combined with vector ranking so exact names still count. Original conversations remain available.
 - **Ask my memories:** retrieve original sources, or opt into a written answer from your selected local Ollama model. Generated answers show the source conversations and must be checked against them.
-- **Collections:** open a conversation and give it a collection such as Work or Learning. All its known turns move together; later captured turns in that identified thread inherit the collection. Source filters keep ChatGPT and Claude separately browsable.
+- **Collections:** open a conversation and give it a collection such as Work or Learning. All its known turns move together; later captured turns in that identified thread inherit the collection. Source filters keep each supported AI app separately browsable.
 - **Library overview:** total recorded moments, distinct conversations, Favorites, storage used, and source breakdown. These are local archive counts, not provider billing estimates.
 - **Local reflections:** in A look back, choose Reflect with local AI. The selected day's first eight retrieved recent moments and personal note are supplied as evidence. Suggestions are labeled generated; they do not predict mood or prove that work was completed. Reflections are generated on request, not saved in the database.
 - **History import:** JSON exports from Wirebrain, ChatGPT (`conversations.json` with selected branches), and Claude (`conversations.json` with chat_messages). 7 MB per file in the UI; ZIP files and attachments are not supported. Validation precedes writes; identical moments are skipped on repeated imports. Existing notes are preserved.
@@ -66,7 +70,7 @@ Refresh the installed model list in Local setup, choose a writing model, and sav
 
 Use **Update memory index** after enabling/changing an embedding model. While the dashboard runs, its worker indexes up to 32 changed passages each minute. Edits invalidate stale embeddings and deleted memories are removed from the index. Large libraries need time to catch up; search reports memories missing from its index. The current implementation ranks vectors in Python and is intended for personal libraries rather than millions of records.
 
-## Capture existing ChatGPT and Claude sessions (Windows)
+## Capture existing AI website sessions (Windows)
 
 ```powershell
 python -m venv .venv-capture
@@ -160,7 +164,7 @@ Use a model available in your provider account. `X-Wirebrain-Project` is a local
 
 - **My diary:** a staggered collection of rounded conversation cards, frosted-glass controls, light/dark appearances, a calendar with remembered days, and grouped chat details. Diary dates follow your browser's local timezone.
 - **A note to myself:** write and save your own note for each day. Notes stay in the local database and are included in diary exports.
-- **All memories:** search the full text of recorded conversations, with simple ChatGPT and Claude filters.
+- **All memories:** search the full text of recorded conversations, with filters for ChatGPT, Claude, Gemini, Grok, and Meta AI.
 - **Favorites:** star a memory to keep it in a separate collection; unstar it at any time.
 - **A look back:** a readable activity review using the questions actually captured that day, plus your own note. Download the day as Markdown. This does not infer accomplishments or call another AI service.
 - **Recording controls:** pause from the diary and resume the already-configured Windows recorder without redoing setup. First-time certificate trust still requires explicit setup.
@@ -250,7 +254,3 @@ The supported wire formats follow the official [OpenAI streaming reference](http
 ## License
 
 [MIT](LICENSE). This repository is prepared for open-source release; nothing has been published to a registry or GitHub automatically.
-
-## Community and contributions
-
-Read [Contributing](CONTRIBUTING.md) for setup and the pull request workflow, [Governance](GOVERNANCE.md) for maintainer and merge policies, and the [Code of Conduct](CODE_OF_CONDUCT.md). Ask questions in [Discussions](https://github.com/Saireddybv/wirebrain/discussions), report reproducible bugs with an issue template, and report vulnerabilities using [private security reporting](https://github.com/Saireddybv/wirebrain/security/advisories/new).

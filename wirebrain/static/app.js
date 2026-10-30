@@ -1,7 +1,7 @@
 'use strict';
 const $ = selector => document.querySelector(selector);
-const names = {chatgpt:'ChatGPT',claude:'Claude',openai:'ChatGPT',anthropic:'Claude',groq:'Groq'};
-const icons = {chatgpt:'◎',claude:'✳',openai:'◎',anthropic:'✳'};
+const names = {chatgpt:'ChatGPT',claude:'Claude',openai:'ChatGPT',anthropic:'Claude',groq:'Groq',gemini:'Gemini',grok:'Grok',meta:'Meta AI'};
+const icons = {chatgpt:'◎',claude:'✳',openai:'◎',anthropic:'✳',gemini:'✦',grok:'𝕏',meta:'∞'};
 const localDay = date => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
 const asDate = day => new Date(day+'T12:00:00');
 const today = () => localDay(new Date());
@@ -58,7 +58,7 @@ function memoryCard(items){
 }
 function masonryColumns(){return $('.main-column').getBoundingClientRect().width>=920?3:2;}
 function renderTimeline(rows){
-  const target=$('#timeline');if(!rows.length){empty(target,query?'Nothing here just yet.':view==='saved'?'A place for your favorites.':'A fresh page, waiting for you.',query?'Try a different word or choose another app.':view==='saved'?'Tap the star on a memory you would like to keep close.':selectedDay===today()?'Have a conversation in ChatGPT or Claude. When recording is on, your moments will appear here.':'There are no captured conversations for this day. You can still leave a note to yourself.');return;}
+  const target=$('#timeline');if(!rows.length){empty(target,query?'Nothing here just yet.':view==='saved'?'A place for your favorites.':'A fresh page, waiting for you.',query?'Try a different word or choose another app.':view==='saved'?'Tap the star on a memory you would like to keep close.':selectedDay===today()?'Have a conversation in a supported AI app. When recording is on, your moments will appear here.':'There are no captured conversations for this day. You can still leave a note to yourself.');return;}
   if(query){
     target.replaceChildren();const groups=new Map();
     for(const row of rows){const key=groupKey(row);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(row);}
@@ -88,12 +88,13 @@ function renderReview(){
   if(diary.note){const card=node('article','review-card');card.append(node('h3','','In your own words'),node('p','',diary.note));target.append(card);}
 }
 function setRecording(capture){
-  const running=Boolean(capture.running),starting=startingAt&&Date.now()-startingAt<30000&&!running;
-  if(running)startingAt=0;
+  const running=Boolean(capture.running),starting=!capture.error&&startingAt&&Date.now()-startingAt<30000&&!running;
+  if(capture.error){$('#recording-error').textContent=capture.error;$('#recording-error').hidden=false;}
+  if(running||capture.error)startingAt=0;
   $('#chip-dot').classList.toggle('off',!running);$('#chip-label').textContent=running?'Recording':starting?'Starting':'Paused';
   $('#recording-chip').setAttribute('aria-label',`Recording ${running?'is on':starting?'is starting':'is paused'}. Open recording controls`);
   $('#recording-dot').classList.toggle('off',!running);$('#recording-title').textContent=running?'Your diary is remembering':starting?'Getting ready to remember':'Recording is paused';
-  $('#capture-status').textContent=running?(capture.system_proxy?'Your supported ChatGPT and Claude conversations are being saved on this computer.':'The recorder is open, but your apps are not connected to it yet.'):starting?'Your recorder is starting. This can take a few moments.':'Your memories are still here. Resume when you want to capture new conversations.';
+  $('#capture-status').textContent=running?(capture.system_proxy?'Your recorder is connected. Supported text conversations are saved on this computer.':'The recorder is open, but your apps are not connected to it yet.'):starting?'Your recorder is starting. This can take a few moments.':'Your memories are still here. Resume when you want to capture new conversations.';
   $('#recording-toggle').textContent=running?'Pause recording':starting?'Starting…':'Resume recording';$('#recording-toggle').disabled=Boolean(starting);$('#recording-toggle').dataset.running=String(running);
 }
 async function refresh(){
@@ -105,12 +106,12 @@ async function refresh(){
     const results=await Promise.all(tasks);if(version!==revision)return;
     stats=results[0];diary=results[1];$('#error').hidden=true;$('#nav-count').textContent=stats.exchanges;
     $('#search-status').textContent=results[2]?.unindexed?`${results[2].unindexed} memories are missing from the meaning index. Update it in Local setup.`:query?(searchMode==='semantic'?'Matched by meaning and words on this computer.':'Matched by words in your conversations.'):'';
-    visibleRows=(results[2]?.rows||diary.entries).filter(row=>(!collectionFilter||row.project===collectionFilter)&&(!provider||(provider==='chatgpt'?['chatgpt','openai'].includes(row.provider):['claude','anthropic'].includes(row.provider))));
+    visibleRows=(results[2]?.rows||diary.entries).filter(row=>(!collectionFilter||row.project===collectionFilter)&&(!provider||({chatgpt:['chatgpt','openai'],claude:['claude','anthropic']}[provider]||[provider]).includes(row.provider)));
     const overview=view==='review'?diary.entries:visibleRows;
     $('#moment-count').textContent=overview.length;$('#chat-count').textContent=new Set(overview.map(groupKey)).size;
     const apps=[...new Set(overview.map(row=>names[row.provider]||'AI conversation'))];$('#tools-label').textContent=apps.length?apps.join(' & '):'A fresh page';$('#tools-caption').textContent=apps.length?'A few thoughts, kept in one place.':'Your next conversation belongs here.';
     if(noteDay!==selectedDay||!noteDirty){$('#day-note').value=diary.note;noteDay=selectedDay;$('#note-status').textContent=diary.note_updated?'Saved on this computer.':'Only you can see this.';}
-    setRecording(stats.capture||{});heading();renderCalendar();
+    setRecording(stats.capture||{});$('#recording-support').textContent='ChatGPT, Claude, Gemini, Grok & Meta AI · Text capture. The new website adapters are experimental.';$('#recording-notices').textContent=(stats.capture_notices||[]).join(' ');heading();renderCalendar();
     const signature=JSON.stringify([view,selectedDay,provider,query,visibleRows,diary.note]);if(signature!==lastRender){lastRender=signature;if(view==='review')renderReview();else if(view!=='tools')renderTimeline(visibleRows);}
   }catch(error){showError(error);}finally{busy=false;if(pending){pending=false;refresh();}}
 }
@@ -131,14 +132,15 @@ async function openMemory(row){
 }
 $('#day-note').oninput=()=>{noteDirty=true;$('#note-status').textContent='A thought in progress…';};
 $('#save-note').onclick=async()=>{const button=$('#save-note'),day=selectedDay,body=$('#day-note').value;button.disabled=true;$('#note-status').textContent='Saving…';try{await post('/api/diary/note',{day,body});if(selectedDay===day&&$('#day-note').value===body){noteDirty=false;diary.note=body;$('#note-status').textContent='Saved. A little thought, kept safe.';}toast('Your note is saved.');lastRender='';await refresh();}catch(error){showError(error);$('#note-status').textContent='Not saved. Please try again.';}finally{button.disabled=false;}};
-$('#recording-toggle').onclick=async()=>{const button=$('#recording-toggle');button.disabled=true;try{if(button.dataset.running==='true'){await post('/api/capture/stop',{});toast('Pausing new recordings. Your memories stay here.');}else{await post('/api/capture/start',{});startingAt=Date.now();setRecording({});toast('Starting your recorder…');}await refresh();}catch(error){showError(error);}finally{if(!startingAt)button.disabled=false;}};
+$('#recording-toggle').onclick=async()=>{const button=$('#recording-toggle');button.disabled=true;$('#recording-error').hidden=true;try{if(button.dataset.running==='true'){await post('/api/capture/stop',{});toast('Pausing new recordings. Your memories stay here.');}else{await post('/api/capture/start',{});startingAt=Date.now();setRecording({});toast('Starting your recorder…');}await refresh();}catch(error){startingAt=0;$('#recording-error').textContent=error.message;$('#recording-error').hidden=false;}finally{if(!startingAt)button.disabled=false;}};
 $('#previous-day').onclick=()=>{const date=asDate(selectedDay);date.setDate(date.getDate()-1);chooseDay(localDay(date));};
 $('#next-day').onclick=()=>{const date=asDate(selectedDay);date.setDate(date.getDate()+1);chooseDay(localDay(date));};
 $('#today-button').onclick=()=>chooseDay(today());
 function openNotes(focus=false){$('#notes-sheet').showModal();if(focus)$('#day-note').focus();}
 $('#write-note').onclick=()=>openNotes(true);
 $('#quick-note').onclick=()=>openNotes(true);
-$('#recording-chip').onclick=()=>openNotes();
+$('#recording-chip').onclick=()=>{$('#recording-dialog').showModal();};
+$('#close-recording').onclick=()=>$('#recording-dialog').close();
 $('#close-notes').onclick=()=>$('#notes-sheet').close();
 function syncMenuAccessibility(){const narrow=window.matchMedia('(max-width:1023px)').matches,open=document.body.classList.contains('menu-open'),hidden=narrow&&!open;$('#diary-navigation').inert=hidden;$('#diary-navigation').setAttribute('aria-hidden',String(hidden));$('main').inert=narrow&&open;}
 function setMenu(open){const wasOpen=document.body.classList.contains('menu-open');document.body.classList.toggle('menu-open',open);$('#menu-toggle').setAttribute('aria-expanded',String(open));$('#menu-toggle').setAttribute('aria-label',open?'Close navigation':'Open navigation');$('#menu-backdrop').hidden=!open;syncMenuAccessibility();if(open)$('#diary-navigation .nav.active').focus();else if(wasOpen&&window.matchMedia('(max-width:1023px)').matches)$('#menu-toggle').focus();}

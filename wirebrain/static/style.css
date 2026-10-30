@@ -228,3 +228,6 @@ dialog::-webkit-scrollbar-thumb { border-radius: 8px; background: var(--subtle);
 .workflow-source-list { margin:24px 0; padding-top:16px; border-top:1px solid var(--hairline); }
 .workflow-source-list summary { font-size:12px; color:var(--blue); cursor:pointer; }
 @media(max-width:600px) { .workflow-scope input,.workflow-scope select,.workflow-actions select,.workflow-actions input[type=search],#snippet-form input,#snippet-form textarea {font-size:16px} }
+
+/* Allow additional app filters to wrap on narrow screens. */
+.timeline-toolbar{flex-wrap:wrap;gap:14px}.filters{flex-wrap:wrap;max-width:100%}

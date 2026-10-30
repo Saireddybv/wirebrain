@@ -1,4 +1,4 @@
-"""Text-only adapters for the existing ChatGPT and Claude web protocols.
+"""Text-only adapters for allowlisted AI website protocols.
 
 No cookies, authorization headers, page titles, or unrelated traffic are stored.
 Parsing is intentionally independent of mitmproxy so it can be tested offline.
@@ -7,14 +7,19 @@ import json
 import re
 from urllib.parse import urlsplit
 
-HOSTS = {"chatgpt.com": "chatgpt", "chat.openai.com": "chatgpt", "claude.ai": "claude"}
-ALLOW_HOSTS = r"^(chatgpt\.com|chat\.openai\.com|claude\.ai)(:443)?$"
+HOSTS = {"chatgpt.com": "chatgpt", "chat.openai.com": "chatgpt", "claude.ai": "claude",
+         "gemini.google.com":"gemini", "geminiweb-pa.clients6.google.com":"gemini", "grok.com":"grok", "www.grok.com":"grok",
+         "meta.ai":"meta", "www.meta.ai":"meta", "graph.meta.ai":"meta", "gateway.meta.ai":"meta"}
+ALLOW_HOSTS = r"^(" + '|'.join(re.escape(host) for host in HOSTS) + r")(:443)?$"
 MAX_TEXT = 2 * 1024 * 1024
 
 
 def generation_request(host, path, body):
     """Return a supported submitted prompt, never a draft or history response."""
     provider = HOSTS.get(host.lower())
+    if provider in ('gemini','grok','meta'):
+        from .extra_webcapture import submitted
+        return submitted(provider,path,body)
     path = urlsplit(path).path
     if provider == "chatgpt":
         if not re.fullmatch(r"/backend-api/(?:f/)?conversation", path):

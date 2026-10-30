@@ -117,7 +117,12 @@ class Store:
                 from urllib.parse import quote
                 source_id = conversation_id.rsplit('/', 1)[-1]
                 source_url = (("https://chatgpt.com/c/" if provider == 'chatgpt' else "https://claude.ai/chat/") + quote(source_id, safe="")) if provider in ('chatgpt','claude') else ""
+                if provider == 'gemini': source_url = 'https://gemini.google.com/app/' + quote(source_id.removeprefix('c_'), safe='')
+                elif provider == 'grok': source_url = 'https://grok.com/c/' + quote(source_id, safe='')
+                if provider == 'meta' and re.fullmatch(r'[0-9a-fA-F-]{36}', source_id): source_url = 'https://www.meta.ai/prompt/' + quote(source_id, safe='')
                 db.execute("INSERT OR IGNORE INTO threads VALUES (?,?,?,?,?)", (thread_id, provider, conversation_id, redact(title or row['prompt'])[:120], source_url))
+                if source_url:
+                    db.execute("UPDATE threads SET source_url=? WHERE id=? AND source_url=''",(source_url,thread_id))
                 existing = db.execute('SELECT c.project FROM conversations c JOIN exchange_threads e ON e.exchange_id=c.id WHERE e.thread_id=? AND c.id<>? ORDER BY c.created LIMIT 1',(thread_id,ident)).fetchone()
                 if existing:
                     db.execute('UPDATE conversations SET project=? WHERE id=?',(existing['project'],ident))

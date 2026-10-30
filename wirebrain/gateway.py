@@ -145,7 +145,10 @@ def handler_factory(store, config, dashboard=False, upstreams=None):
             if path.path == "/api/stats":
                 with store.connect() as db:
                     stats = dict(db.execute("SELECT count(*) exchanges, count(distinct project) projects, coalesce(sum(input_tokens),0) input_tokens, coalesce(sum(output_tokens),0) output_tokens FROM conversations").fetchone())
-                return self.reply({**stats, "redact_on_wire": config["redact_on_wire"], "search": "SQLite full-text", "version": "0.1.0", "capture": store.capture_state(), "capture_diagnostics": store.capture_diagnostics()})
+                with store.connect() as db:
+                    meta_binary = db.execute("SELECT count FROM capture_routes WHERE route='meta websocket binary transport'").fetchone()
+                notices = ['Meta AI binary WebSocket traffic was detected. That transport is not supported yet; messages on that transport are not recorded.'] if meta_binary else []
+                return self.reply({**stats, "redact_on_wire": config["redact_on_wire"], "search": "SQLite full-text", "version": "0.1.0", "capture": store.capture_state(), "capture_diagnostics": store.capture_diagnostics(), "capture_notices": notices})
             if path.path == "/api/projects":
                 return self.reply(store.projects())
             if path.path == "/api/reflection":

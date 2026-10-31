@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "prompts": {
+    "mcp.tools.list_conversations": {"file":"mcp/tools/list_conversations.md","version":1,"role":"tool","variables":[]},
+    "mcp.tools.read_conversation": {"file":"mcp/tools/read_conversation.md","version":1,"role":"tool","variables":[]},
+    "mcp.tools.conversation_handoff": {"file":"mcp/tools/conversation_handoff.md","version":1,"role":"tool","variables":[]},
+    "gateway.connection_test": {
+      "file": "gateway/connection_test.md",
+      "version": 1,
+      "role": "user",
+      "variables": []
+    },
+    "gateway.text_only": {
+      "file": "gateway/text_only.md",
+      "version": 1,
+      "role": "system",
+      "variables": [
+        "messages"
+      ]
+    },
+    "mcp.context": {
+      "file": "mcp/context.md",
+      "version": 1,
+      "role": "context",
+      "variables": []
+    },
+    "mcp.tools.context_handoff": {
+      "file": "mcp/tools/context_handoff.md",
+      "version": 1,
+      "role": "tool",
+      "variables": []
+    },
+    "mcp.tools.read_memory": {
+      "file": "mcp/tools/read_memory.md",
+      "version": 1,
+      "role": "tool",
+      "variables": []
+    },
+    "mcp.tools.recent_memory": {
+      "file": "mcp/tools/recent_memory.md",
+      "version": 1,
+      "role": "tool",
+      "variables": []
+    },
+    "mcp.tools.search_memory": {
+      "file": "mcp/tools/search_memory.md",
+      "version": 1,
+      "role": "tool",
+      "variables": []
+    },
+    "mcp.tools.search_personal_memory": {
+      "file": "mcp/tools/search_personal_memory.md",
+      "version": 1,
+      "role": "tool",
+      "variables": []
+    },
+    "memory.extract": {
+      "file": "memory/extract.md",
+      "version": 1,
+      "role": "system",
+      "variables": [
+        "schema"
+      ],
+      "schema": "memory/extract.schema.json"
+    },
+    "memory.overview": {
+      "file": "memory/overview.md",
+      "version": 1,
+      "role": "system",
+      "variables": [],
+      "schema": "memory/overview.schema.json"
+    },
+    "recall.context": {
+      "file": "recall/context.md",
+      "version": 1,
+      "role": "user",
+      "variables": [
+        "instruction",
+        "excerpts",
+        "memories",
+        "note"
+      ]
+    },
+    "recall.question": {
+      "file": "recall/question.md",
+      "version": 1,
+      "role": "instruction",
+      "variables": [
+        "query"
+      ]
+    },
+    "recall.system": {
+      "file": "recall/system.md",
+      "version": 1,
+      "role": "system",
+      "variables": []
+    },
+    "reflect.daily": {
+      "file": "reflect/daily.md",
+      "version": 1,
+      "role": "instruction",
+      "variables": []
+    },
+    "reflect.study": {
+      "file": "reflect/study.md",
+      "version": 1,
+      "role": "instruction",
+      "variables": [
+        "topics"
+      ]
+    },
+    "reports.handoff": {
+      "file": "reports/handoff.md",
+      "version": 1,
+      "role": "instruction",
+      "variables": []
+    },
+    "reports.handoff_recipient": {
+      "file": "reports/handoff_recipient.md",
+      "version": 1,
+      "role": "context",
+      "variables": []
+    },
+    "reports.research": {
+      "file": "reports/research.md",
+      "version": 1,
+      "role": "instruction",
+      "variables": []
+    },
+    "reports.standup": {
+      "file": "reports/standup.md",
+      "version": 1,
+      "role": "instruction",
+      "variables": []
+    },
+    "reports.study": {
+      "file": "reports/study.md",
+      "version": 1,
+      "role": "instruction",
+      "variables": []
+    },
+    "reports.timeline": {
+      "file": "reports/timeline.md",
+      "version": 1,
+      "role": "instruction",
+      "variables": []
+    },
+    "reports.weekly": {
+      "file": "reports/weekly.md",
+      "version": 1,
+      "role": "instruction",
+      "variables": []
+    }
+  }
+}

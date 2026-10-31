@@ -1,0 +1,1 @@
+Create a bite-sized study guide about these recurring topics: ${topics}. Include a short explanation, one practice task, and one self-check question per topic. Cite sources and distinguish uncertain claims. Repetition does not prove inability.

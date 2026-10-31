@@ -1,6 +1,6 @@
 # Roadmap
 
-The first milestone is a dependable, inspectable local API memory gateway. The original product vision extends beyond this alpha.
+Wirebrain aims to make captured AI conversations useful as local, source-linked memory. Completed items describe the development version; compatibility limits remain explicit.
 
 - [x] Python CLI, explicit API gateway, SQLite FTS5
 - [x] Streaming text capture and provider token usage
@@ -18,7 +18,8 @@ The first milestone is a dependable, inspectable local API memory gateway. The o
 - [ ] Configurable provider/model price tables and budget enforcement
 - [ ] MCP 2026 protocol support via an official SDK
 - [x] Explicit opt-in HTTPS capture adapter for ChatGPT and Claude, with offline real-TLS tests
-- [ ] Live-account verification for ChatGPT and Claude websites and native apps
+- [x] Observed Windows ChatGPT/Claude sessions and live Chrome Gemini/Grok/Meta exchanges
+- [ ] Broader native-app versions and provider rollout compatibility
 - [ ] OS service lifecycle, signed packages and registry publication
 
 Browser capture must not silently install a root CA. A future interception adapter must be allowlisted, opt-in, reversible, and covered by tests before any claim of universal capture.
@@ -31,3 +32,15 @@ Browser capture must not silently install a root CA. A future interception adapt
 - [x] Snippet vault, diary backup/restore of snippets, and source-linked Markdown exports
 - [x] Standup/study/research/timeline reports and side-by-side prompt/model comparisons
 - [x] Usage reporting with per-field availability and exclusion of sample totals
+
+## Memory, connections, and the public project
+
+- [x] Automatic topic extraction, reviewed personal facts, and evidence-backed per-app/combined memory
+- [x] Reflect study guides, neutral AI-use map, macro library, and suggestion review
+- [x] Conversation discovery and paged reading through eight read-only MCP tools
+- [x] Local Claude Desktop MCP retrieval verified with a synthetic source
+- [x] Authenticated HTTP MCP, local OAuth approval, fixed collection scope, token rotation, and revocation
+- [x] Versioned Markdown prompts and JSON schemas bundled as package resources
+- [x] Readable light/dark diary and a simple public project site
+- [ ] Live public HTTPS OAuth connection verification with supported web assistants
+- [ ] Packaged installation and a documented background-service lifecycle

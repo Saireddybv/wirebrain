@@ -1,4 +1,5 @@
 """Explicit, loopback-only API gateway; no TLS interception or credential storage."""
+from .prompting import render_prompt
 import json
 import threading
 import time
@@ -118,12 +119,13 @@ def handler_factory(store, config, dashboard=False, upstreams=None):
             if path.path == '/api/local/status':
                 from .intelligence import settings, local_request, overview
                 import platform
+                from .chatgpt_gateway import status as chatgpt_status
                 try:
                     models = [m['name'] for m in local_request('tags').get('models',[]) if 'cloud' not in m.get('name','').lower() and not m.get('remote_host')]
                     available = True
                 except ValueError:
                     models, available = [], False
-                return self.reply({'settings':settings(store),'models':models,'available':available,'native_available':__import__('importlib.util',fromlist=['find_spec']).find_spec('fastembed') is not None,'platform':platform.system(), 'home':str(store.home.resolve()),'overview':overview(store)})
+                return self.reply({'settings':settings(store),'models':models,'available':available,'chatgpt':chatgpt_status(),'native_available':__import__('importlib.util',fromlist=['find_spec']).find_spec('fastembed') is not None,'platform':platform.system(), 'home':str(store.home.resolve()),'overview':overview(store)})
             if path.path == '/api/memory/search':
                 from .intelligence import search
                 try:
@@ -132,6 +134,20 @@ def handler_factory(store, config, dashboard=False, upstreams=None):
             if path.path == '/api/memory/overview':
                 from .intelligence import overview
                 return self.reply(overview(store))
+            if path.path == '/api/personal-memory':
+                from .personal_memory import list_memories, retrieve, state
+                from .intelligence import settings
+                try:
+                    query, provider, scope, status = params.get('q',[''])[0],params.get('provider',[''])[0],params.get('scope',[None])[0],params.get('status',['approved'])[0]
+                    memories = (retrieve(store,query,provider,scope,'semantic') if query.strip() and status=='approved' and params.get('mode',['keyword'])[0]=='semantic'
+                                else list_memories(store,query,provider,scope,status))
+                    return self.reply({'memories':memories,
+                        'state':state(store),'model':settings(store)['chat_model'],'writing_provider':settings(store).get('writing_provider','ollama'),'embedding_model':settings(store)['embedding_model']})
+                except (ValueError,TypeError) as exc: return self.reply({'error':str(exc)},400)
+            if path.path == '/api/personal-memory/summary':
+                from .memory_rollups import overview
+                try: return self.reply(overview(store,params.get('provider',[''])[0],params.get('scope',[''])[0]))
+                except (ValueError,TypeError) as exc: return self.reply({'error':str(exc)},400)
             if path.path == "/api/feed":
                 return self.reply(store.list(params.get("q", [""])[0],limit=1000,favorites=params.get('saved',['0'])[0]=='1'))
             if path.path == "/api/journal":
@@ -163,7 +179,10 @@ def handler_factory(store, config, dashboard=False, upstreams=None):
             if path.path == '/api/diary/export':
                 from .diary import export_diary
                 return self.reply(json.dumps(export_diary(store),ensure_ascii=False),mime='application/octet-stream')
-            assets = {"/": "index.html", "/app.js": "app.js", "/style.css": "style.css", "/workflows.js": "workflows.js"}
+            assets = {"/": "index.html", "/app.js": "app.js", "/style.css": "style.css", "/workflows.js": "workflows.js", "/personal-memory.js": "personal-memory.js"}
+            assets['/reflect.js']='reflect.js'
+            assets['/conversation-tools.js']='conversation-tools.js'
+            assets['/mcp-connections.js']='mcp-connections.js'
             if path.path in assets:
                 asset = assets[path.path]
                 mime = {"html": "text/html", "js": "application/javascript", "css": "text/css"}[asset.split(".")[-1]]
@@ -188,10 +207,49 @@ def handler_factory(store, config, dashboard=False, upstreams=None):
             except (ValueError, UnicodeDecodeError):
                 return self.reply({"error": "Invalid JSON body (maximum 8 MB)"}, 400)
             if dashboard:
+                if self.path.startswith('/api/reflect/'):
+                    from .reflect_tools import analyze,study_guide
+                    try:
+                        if self.path == '/api/reflect/analyze': return self.reply(analyze(store,payload))
+                        if self.path == '/api/reflect/study': return self.reply(study_guide(store,payload))
+                        if self.path == '/api/reflect/remove-macro':
+                            from .workflows import remove_snippet
+                            return self.reply(remove_snippet(store,payload))
+                        return self.reply({'error':'Unknown Reflect action'},404)
+                    except (ValueError,TypeError) as exc: return self.reply({'error':str(exc)},400)
+                if self.path == '/api/chatgpt/test':
+                    from .chatgpt_gateway import chat
+                    try:
+                        result = chat([{'role':'user','content':render_prompt('gateway.connection_test')}])
+                        return self.reply({'ok':True,'reply':result['message']['content'],'provider':'ChatGPT sign-in (testing)'})
+                    except ValueError as exc: return self.reply({'error':str(exc)},400)
+                if self.path.startswith('/api/personal-memory/'):
+                    from .personal_memory import save, action, state, start_extraction
+                    from .intelligence import settings
+                    try:
+                        if self.path == '/api/personal-memory/summary-refresh':
+                            from .memory_rollups import start
+                            return self.reply(start(store,payload.get('provider',''),payload.get('scope','')))
+                        if self.path == '/api/personal-memory/save': return self.reply(save(store,payload))
+                        if self.path == '/api/personal-memory/action': return self.reply(action(store,payload))
+                        if self.path == '/api/personal-memory/process': return self.reply(start_extraction(store))
+                        if self.path == '/api/personal-memory/settings':
+                            if not isinstance(payload.get('enabled'),bool): raise ValueError('Choose whether background suggestions are enabled')
+                            if payload['enabled'] and not settings(store)['chat_model']: raise ValueError('Select a local writing model in Local setup first')
+                            return self.reply(state(store,{'enabled':payload['enabled'],'error':''}))
+                        return self.reply({'error':'Unknown memory action'},404)
+                    except (ValueError,TypeError) as exc: return self.reply({'error':str(exc)},400)
                 if self.path.startswith('/api/workflows/'):
                     from .workflows import report, snippets, save_snippet, remove_snippet, compare, usage, select, scope
                     action = self.path.rsplit('/',1)[-1]
                     try:
+                        if action == 'mcp-http':
+                            from .mcp_http import control
+                            try: return self.reply(control(store,payload))
+                            except OSError: raise ValueError('MCP could not start. Choose an unused port and try again.') from None
+                        if action in ('list-conversations','read-conversation','conversation-handoff'):
+                            from . import memory_tools
+                            return self.reply(getattr(memory_tools,action.replace('-','_'))(store,payload))
                         if action == 'report': return self.reply(report(store,payload))
                         if action == 'snippets': return self.reply({'snippets':snippets(store,payload)})
                         if action == 'save-snippet': return self.reply(save_snippet(store,payload))
@@ -225,9 +283,12 @@ def handler_factory(store, config, dashboard=False, upstreams=None):
                         if self.path == '/api/memory/collection': return self.reply(collection(store,payload.get('id'),payload.get('name')))
                         from .diary import journal
                         day = journal(store,payload.get('day',''),payload.get('offset',0))
-                        rows = day['entries'][:8]
+                        from .workflows import scope
+                        chosen=scope(payload)
+                        rows = store.list(limit=8,day=payload.get('day',''),day_offset=chosen['day_offset'],provider=chosen['provider'],project=chosen['project'])
                         if not rows: raise ValueError('No conversations were captured on this day')
-                        return self.reply({'answer':generate(store,'Reflect on the recorded day: what was explored, possible open questions, and one optional next step. Do not assume a task is unfinished just because completion is not recorded.',rows,day['note']), 'sources':rows,'generated':True})
+                        note=day['note'] if not chosen['provider'] and not chosen['project'] else ''
+                        return self.reply({'answer':generate(store,render_prompt('reflect.daily'),rows,note), 'sources':rows,'generated':True,'writing_provider':settings(store).get('writing_provider','ollama')})
                     except (ValueError,TypeError) as exc: return self.reply({'error':str(exc)},400)
                 if self.path == '/api/capture/start':
                     from .capture import start_background
@@ -329,6 +390,12 @@ def serve(store, config):
         if gateway: gateway.server_close()
         raise
     stop = threading.Event()
+    from . import mcp_http
+    from .mcp_access import Access
+    mcp_config=Access(store.home).config()
+    if mcp_config['enabled']:
+        try: mcp_http.start(store,mcp_config['port'],mcp_config['public_url'])
+        except (OSError,ValueError): print('Remote MCP could not start. Check its settings in Tools.',flush=True)
 
     def reflect():
         while not stop.wait(60):
@@ -338,8 +405,26 @@ def serve(store, config):
                 if settings(store)['embedding_model']: index_batch(store)
             except Exception: pass
 
+    def remember():
+        while not stop.wait(60):
+            from .personal_memory import index_facts, extract_batch, state
+            try:
+                index_facts(store)
+            except Exception:
+                pass  # Keyword recall remains available when the embedding model is unavailable.
+            try:
+                if state(store)['enabled']: extract_batch(store)
+            except Exception:
+                pass  # Extraction errors are persisted for the Memory page.
+            try:
+                from .reflect_tools import discover_macros
+                discover_macros(store,store.list(limit=100))
+            except Exception:
+                pass  # Reflect can rescan its selected range on demand.
+
     if gateway: threading.Thread(target=gateway.serve_forever, daemon=True).start()
     threading.Thread(target=reflect, daemon=True).start()
+    threading.Thread(target=remember, daemon=True).start()
     print(f"Your Wirebrain diary  http://127.0.0.1:{config['dashboard_port']}\nPress Ctrl+C to stop the diary.", flush=True)
     if gateway: print(f"Optional developer gateway: http://127.0.0.1:{config['gateway_port']}",flush=True)
     try:
@@ -348,6 +433,7 @@ def serve(store, config):
         pass
     finally:
         stop.set()
+        mcp_http.stop(store,persist=False)
         if gateway:
             gateway.shutdown()
             gateway.server_close()

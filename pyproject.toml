@@ -15,7 +15,7 @@ keywords = ["ai-memory", "chatgpt", "claude", "local-first", "semantic-search", 
 [project.urls]
 Homepage = "https://saireddybv.github.io/wirebrain/"
 Repository = "https://github.com/Saireddybv/wirebrain"
-Documentation = "https://github.com/Saireddybv/wirebrain#start-from-a-downloaded-checkout"
+Documentation = "https://github.com/Saireddybv/wirebrain#quick-start"
 Issues = "https://github.com/Saireddybv/wirebrain/issues"
 
 [project.optional-dependencies]
@@ -26,4 +26,4 @@ memory = ["fastembed>=0.7,<0.8", "huggingface-hub>=0.20,<1.0"]
 wirebrain = "wirebrain.cli:main"
 
 [tool.setuptools.package-data]
-wirebrain = ["static/*"]
+wirebrain = ["static/*", "prompts/*.json", "prompts/*.md", "prompts/**/*.md", "prompts/**/*.json"]

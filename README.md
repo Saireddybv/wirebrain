@@ -1,256 +1,209 @@
+<div align="center">
+
 # Wirebrain
 
-**A personal diary for your AI conversations.**
+### Git tracks your code. Wirebrain remembers the thinking behind it.
 
-A local conversation recorder that turns your AI work into searchable personal memory. SQLite storage, a quiet dashboard, and an optional HTTPS capture service for your existing ChatGPT, Claude, Gemini, Grok, and Meta AI website sessions. MIT licensed. No analytics or frontend build step.
+A local-first memory and personal diary for your AI conversations.<br>
+Find past answers, reflect on your work, and carry context between assistants.
 
-- Keep supported ChatGPT, Claude, and optional API conversations in one local archive.
-- Let an MCP-compatible coding assistant search the context you discussed elsewhere.
-- Revisit your day, keep useful snippets, and turn recorded questions into source-linked reports.
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](pyproject.toml)
+[![Status: experimental](https://img.shields.io/badge/Status-experimental-orange.svg)](#project-status)
 
+[Website](https://saireddybv.github.io/wirebrain/) · [Get started](#quick-start) · [Connect an assistant](#connect-an-assistant) · [Documentation](#documentation) · [Contribute](CONTRIBUTING.md)
 
-> **Experimental:** Existing-app capture is now implemented using an allowlisted HTTPS proxy. It needs explicit local certificate trust and proxy setup. Offline protocol and TLS integration tests pass; this does not establish compatibility with every live app release. No provider API keys are required for this mode.
+</div>
 
-### Additional AI websites (experimental)
+---
 
-The local recorder now includes text adapters for **Gemini** (`gemini.google.com`), **Grok** (`grok.com`), and **Meta AI HTTP/GraphQL and binary DGW WebSocket** chat transports (`meta.ai`). These use your existing browser session; no provider API key or copied cookies are needed. Gemini and Grok appear in the diary and Memory tools app filters, and captured conversation IDs keep their threads separate.
+Your useful answers are scattered across ChatGPT, Claude, Gemini, Grok, and Meta AI. Wirebrain keeps the supported conversations you capture or import in one searchable place on your computer, with their original prompts, replies, and source links.
 
-**Gemini WebChannel, Grok message gateway, and Meta DGW capture have been verified with real Chrome exchanges.** Legacy Gemini StreamGenerate, Grok HTTP, and Meta HTTP adapters are also retained for older website rollouts. WhatsApp, Facebook, Instagram, X-embedded Grok, voice, image contents, and file contents are not covered by these adapters. These are private web protocols and can change; local protocol/TLS tests do not prove compatibility with every live account. See [capture coverage](docs/CAPTURE-COVERAGE.md).
+**No provider API key is required for the diary, history imports, or supported existing-session capture.** Keyword search and original-source tools work without an LLM. Optional models add semantic search, reusable memory, and source-linked writing.
 
-## Start from a downloaded checkout
+## Project status
 
-1. Install Python 3.11 or newer, download this repository, and extract it.
-2. Run `python start_wirebrain.py` in the extracted folder. Windows users can also run `Start-Wirebrain.ps1`; on macOS run `bash Start-Wirebrain.command`. The launcher creates an isolated environment and installs capture and local-search dependencies on its first run.
-3. The diary opens in your browser. The launcher explains capture permissions and asks you to type `yes` before trusting a certificate or changing proxy settings. Choose diary-only if you prefer importing history. Ctrl+C stops the foreground recorder and restores its proxy settings.
-4. Open **Local setup** to import history or enable the small local search model, then update the memory index. Optional Ollama writing models add generated answers and daily reflections.
+Experimental software for a single local owner. Capture uses changing private web protocols and an opt-in HTTPS proxy. Windows is the primary live-tested platform; real-device macOS capture is still pending. Wirebrain does not capture every app or synchronize providers' private saved-memory stores.
 
-An existing `.wirebrain` archive in the checkout is reused when upgrading; new checkouts use `~/.wirebrain`. Set `WIREBRAIN_HOME` to choose another location.
+## What you can do
 
-This is a source launcher, not a signed desktop installer. Python and internet access for the first dependency/model downloads are still required. Launching an existing diary opens it instead of starting another instance. macOS trust/network integration has simulated command tests; actual Safari/Chrome/native-app capture on a Mac is **not yet verified**. macOS may require administrator approval for network changes. Authenticated proxies and automatic proxy scripts are rejected rather than overwritten.
+| Feature | What it does |
+| --- | --- |
+| **My diary** | Browse grouped conversation cards, select a day, sort latest/oldest, keep Favorites, and see local storage usage. Responsive light and dark appearances. |
+| **Search** | Find exact words with SQLite FTS5, or combine word matches with optional local embeddings to search by meaning. Open the original evidence. |
+| **Memory** | Build reusable topics automatically when AI processing is enabled. Review personal-fact suggestions in Reflect. View combined Wirebrain memory or filter by AI app and collection. |
+| **Reflect** | Revisit recurring learning topics, inspect a source-linked map of request types, and reuse automatically extracted prompts, email drafts, and workflows. |
+| **Tools** | Read whole captured conversations, prepare context handoffs, export reports, save code snippets, compare prompts/replies, and inspect provider-reported usage. |
+| **MCP** | Let compatible assistants search memory, discover chats, and read captured turns. Use local stdio or a shared authenticated HTTP endpoint with collection permissions and revocation. |
+| **Import and export** | Import supported ChatGPT, Claude, or Wirebrain JSON exports. Back up conversations, notes, reusable memory, and saved snippets locally. |
 
-## Your memory tools
+Reflections are grounded in captured evidence. A repeated question is not a proficiency score, a diagnosis, or proof that work was completed.
 
-- **Search by words or meaning:** choose the search mode in your collection. Meaning search uses a small optional FastEmbed model on the CPU, or a local Ollama embedding model. Keyword results are combined with vector ranking so exact names still count. Original conversations remain available.
-- **Ask my memories:** retrieve original sources, or opt into a written answer from your selected local Ollama model. Generated answers show the source conversations and must be checked against them.
-- **Collections:** open a conversation and give it a collection such as Work or Learning. All its known turns move together; later captured turns in that identified thread inherit the collection. Source filters keep each supported AI app separately browsable.
-- **Library overview:** total recorded moments, distinct conversations, Favorites, storage used, and source breakdown. These are local archive counts, not provider billing estimates.
-- **Local reflections:** in A look back, choose Reflect with local AI. The selected day's first eight retrieved recent moments and personal note are supplied as evidence. Suggestions are labeled generated; they do not predict mood or prove that work was completed. Reflections are generated on request, not saved in the database.
-- **History import:** JSON exports from Wirebrain, ChatGPT (`conversations.json` with selected branches), and Claude (`conversations.json` with chat_messages). 7 MB per file in the UI; ZIP files and attachments are not supported. Validation precedes writes; identical moments are skipped on repeated imports. Existing notes are preserved.
+## Quick start
 
-### Make more of your memories
-
-Open **Memory tools** in the sidebar. Choose dates, an app, and a collection, then:
-
-- Create a **weekly reflection**, **standup**, **study guide**, **project timeline/build log**, **research sourcebook**, or **context handoff**. Original-source reports work without an AI model and can be copied or downloaded as Markdown. A configured local writing model can draft a synthesis with numbered source excerpts.
-- See **topics you returned to**, counted from captured prompts. This suggests what to revisit; it does not measure proficiency or diagnose a knowledge gap.
-- Use the **snippet vault** to find fenced code blocks in replies, keep/edit useful excerpts, copy code, and reopen its original conversation. Snippets are never executed. Saved snippets are included in diary JSON backup/restore and removed when their source memory is deleted.
-- **Compare** two captured moments side by side, including provider/model metadata and prompt/reply text differences. New gateway records include top-level system/instructions text for prompt iteration tracking.
-- Review **usage** separately from the everyday diary. Only provider-reported token fields count. Explicit zero is distinguished from unavailable data; synthetic samples are excluded, and subscription spending is never guessed.
-- Under Reports, expand **Connect a coding assistant** for a local MCP configuration. Select a collection first to restrict every tool to that collection.
-
-The original-source report selection is capped at 2,000 moments and one year per request. Local drafts use up to 24 selected excerpts and the first 2,000 note characters, with coverage disclosed. Handoff packets use the 20 most recent moments in the selected scope. See [workflow guide](docs/WORKFLOWS.md) for examples and boundaries.
-
-### Optional local AI
-
-The source launcher installs the CPU search runtime. With a manual installation, use:
+Install **Python 3.11 or newer**, then run:
 
 ```sh
-python -m pip install -e '.[memory]'
+git clone https://github.com/Saireddybv/wirebrain.git
+cd wirebrain
+python start_wirebrain.py
 ```
 
-In Local setup, **Enable local search** downloads BAAI/bge-small-en-v1.5 (about 70 MB of model weights, plus supporting files). Download requests contain no diary text. After preparation, inference reads local model files; no model download is triggered by background indexing. This small model is primarily intended for English text. The embedding cache stays in the diary's SQLite database; model files live in its `models` folder.
+Or [download the repository ZIP](https://github.com/Saireddybv/wirebrain/archive/refs/heads/main.zip), extract it, and run `python start_wirebrain.py` in that folder.
 
-For generated answers/reflections, install Ollama separately and download a local writing model suitable for your hardware. For example:
+1. The launcher creates an isolated Python environment and installs the capture and local-search dependencies. The first setup needs internet access.
+2. Your diary opens at **http://127.0.0.1:3333/**.
+3. Choose whether to enable existing-session capture. The launcher asks before trusting a local certificate or changing proxy settings. You can choose diary-only and import history instead.
+4. Use your supported AI apps normally. Reload already-open chat tabs after enabling capture. Optional AI features are in **Local setup**.
+
+Windows also provides `Start-Wirebrain.ps1`; on macOS use `bash Start-Wirebrain.command`. This is a source launcher, not a signed desktop installer or a published npm package.
+
+### Start and stop
+
+Keep the launcher terminal open while using Wirebrain. **Ctrl+C** stops its foreground processes and restores proxy settings when its recorder exits normally. The diary's recording controls can pause or resume an already-configured recorder.
+
+If capture ended unexpectedly, restore its saved proxy settings with:
 
 ```sh
-ollama pull qwen3:4b
+wirebrain --home /absolute/path/to/your/diary capture-reset
 ```
 
-Refresh the installed model list in Local setup, choose a writing model, and save. Ollama is contacted only at `127.0.0.1:11434`, without environment proxies or redirects; cloud-tagged/remote models are rejected. Wirebrain does not install Ollama or download writing models automatically. Running a large model can use substantial RAM and CPU/GPU resources.
+Use the Python environment created by the launcher when `wirebrain` is not on your PATH. Global `--home` comes before the subcommand. An existing checkout archive is reused; new checkouts default to `~/.wirebrain`. Set `WIREBRAIN_HOME` to choose another location. See [capture setup and recovery](docs/HTTPS_CAPTURE.md).
 
-Use **Update memory index** after enabling/changing an embedding model. While the dashboard runs, its worker indexes up to 32 changed passages each minute. Edits invalidate stale embeddings and deleted memories are removed from the index. Large libraries need time to catch up; search reports memories missing from its index. The current implementation ranks vectors in Python and is intended for personal libraries rather than millions of records.
+## Capture support
 
-## Capture existing AI website sessions (Windows)
+| Source | Current coverage |
+| --- | --- |
+| ChatGPT | Text conversations through supported web/app requests and streams. |
+| Claude | Text conversations through supported web/app requests and streams. |
+| Gemini | Supported `gemini.google.com` text chat transports. |
+| Grok | Supported `grok.com` text chat transports. |
+| Meta AI | Supported `meta.ai` HTTP and binary/WebSocket text chat transports. |
 
-```powershell
-python -m venv .venv-capture
-.\.venv-capture\Scripts\python.exe -m pip install -e '.[capture]'
-.\.venv-capture\Scripts\python.exe -m wirebrain --home .wirebrain up
-```
+Gemini, Grok, and Meta AI adapters have been checked with live Chrome exchanges. Availability still depends on the website rollout, request format, and whether traffic reaches the proxy. Some native apps bypass proxies or reject interception certificates.
 
-In a second terminal:
+Images, voice, file contents, WhatsApp/Facebook/Instagram chats, and X-embedded Grok are not comprehensively covered. Wirebrain cannot recover history it never captured unless you import a supported export.
 
-```powershell
-.\.venv-capture\Scripts\python.exe -m wirebrain --home .wirebrain capture --install-ca --system-proxy
-```
+**Platform notes:** Windows has live capture verification. macOS has trust/proxy setup and simulated restoration tests, but actual Safari, Chrome, and native-app capture on a Mac is not yet verified. Linux can run the diary, imports, and MCP; Windows/macOS automatic certificate and proxy setup does not apply there.
 
-Use ChatGPT or Claude normally, reloading any already-open chat tab once after setup. Look for real `ChatGPT` / `Claude` exchanges at **http://127.0.0.1:3333**. The flags explicitly trust a local CA in your Windows user trust store and temporarily route Windows proxy-aware apps through `127.0.0.1:8082`; only the selected AI domains are decrypted. Cookies/authentication headers are not saved. Stop from the dashboard or Ctrl+C to restore the original proxy settings.
+[Capture coverage and limitations →](docs/CAPTURE-COVERAGE.md)
 
-See [HTTPS capture setup, rollback, and compatibility boundaries](docs/HTTPS_CAPTURE.md). Native app compatibility requires a live test; pinned, proxy-ignoring, changed-protocol, and WebSocket-only clients may not be captured. The API gateway below is an optional separate feature.
+## Connect an assistant
 
-## Try it in a minute
+Discuss a project in Claude, then ask a connected coding assistant:
 
-Requires Python 3.11+ with SQLite FTS5 (included in standard Python distributions).
+> “Find my Claude conversation from the last hour, read the relevant turns, and help me continue.”
 
-From this checkout:
+The assistant retrieves context on demand through Wirebrain's read-only tools. It can request more turns when needed; Wirebrain does not send the entire archive with every question.
 
-```sh
-python -m pip install -e .
-wirebrain init
-wirebrain up
-```
+### Local desktop and coding clients
 
-Open **http://127.0.0.1:3333**. Your diary starts empty. Optional sample conversations can be added with `wirebrain demo`; they are explicitly labeled samples. The package has not been published to PyPI; install from this checkout rather than an unrelated similarly named package.
+Open **Tools → Continue & connect → Show connection configuration**, choose a collection if you want restricted access, and copy the generated configuration into a client supporting local stdio MCP. Reconnect or restart that client.
 
-Without installing anything:
-
-```sh
-python -m wirebrain --home .wirebrain init --demo
-python -m wirebrain --home .wirebrain up
-```
-
-`up` runs in the foreground. Stop with Ctrl+C. Use a separate terminal for other commands. This release does not install an OS service.
-
-## Optional: connect an API client
-
-This advanced feature is off by default and has no setup screens in the personal diary. To enable it, start the diary with `wirebrain up --api-gateway`.
-
-Wirebrain forwards the caller's provider credentials to the fixed upstream for the selected route. Keep using your existing API key. Wirebrain does not save authentication headers or fetch keys from your environment.
-
-| Provider | Base URL | Supported endpoints |
-| --- | --- | --- |
-| OpenAI | `http://127.0.0.1:8080/openai/v1` | `/chat/completions`, `/responses` |
-| Anthropic | `http://127.0.0.1:8080/anthropic` | `/v1/messages` |
-| Groq | `http://127.0.0.1:8080/groq/v1` | `/chat/completions` |
-
-For clients that honor these environment variables:
-
-```sh
-# bash / zsh — scoped to this shell
-export OPENAI_BASE_URL=http://127.0.0.1:8080/openai/v1
-export ANTHROPIC_BASE_URL=http://127.0.0.1:8080/anthropic
-```
-
-```powershell
-# PowerShell — scoped to this shell
-$env:OPENAI_BASE_URL = 'http://127.0.0.1:8080/openai/v1'
-$env:ANTHROPIC_BASE_URL = 'http://127.0.0.1:8080/anthropic'
-```
-
-Clients vary: set the base URL in the client's own configuration if it ignores these variables. OAuth/subscription-specific CLI routes are not supported. Unset the variables when stopping Wirebrain to restore direct API access.
-
-An example using an existing OpenAI Python SDK installation (the SDK is not required by Wirebrain itself):
-
-```python
-import os
-from openai import OpenAI
-
-client = OpenAI(base_url="http://127.0.0.1:8080/openai/v1")
-stream = client.chat.completions.create(
-    model=os.environ["OPENAI_MODEL"],
-    messages=[{"role": "user", "content": "Explain SQLite WAL mode"}],
-    extra_headers={"X-Wirebrain-Project": "My Project"},
-    stream=True,
-    stream_options={"include_usage": True},
-)
-for chunk in stream:
-    if chunk.choices:
-        print(chunk.choices[0].delta.content or "", end="", flush=True)
-```
-
-Use a model available in your provider account. `X-Wirebrain-Project` is a local grouping header and is not forwarded. Without it, exchanges go into `Inbox`. No automatic project inference is performed.
-
-## What works today
-
-- **My diary:** a staggered collection of rounded conversation cards, frosted-glass controls, light/dark appearances, a calendar with remembered days, and grouped chat details. Diary dates follow your browser's local timezone.
-- **A note to myself:** write and save your own note for each day. Notes stay in the local database and are included in diary exports.
-- **All memories:** search the full text of recorded conversations, with filters for ChatGPT, Claude, Gemini, Grok, and Meta AI.
-- **Favorites:** star a memory to keep it in a separate collection; unstar it at any time.
-- **A look back:** a readable activity review using the questions actually captured that day, plus your own note. Download the day as Markdown. This does not infer accomplishments or call another AI service.
-- **Recording controls:** pause from the diary and resume the already-configured Windows recorder without redoing setup. First-time certificate trust still requires explicit setup.
-- **Simple normal screens:** no token counters, model IDs, source-chat IDs, developer header names, provider-key forms, or API-gateway setup in the diary interface. The optional developer gateway stays off during normal startup.
-- **Read-only MCP:** search and recent-memory tools over stdio, targeting protocol version `2025-06-18`. Clients must support that version; the newer 2026 protocol is not implemented.
-- **Privacy controls:** best-effort secret redaction before storage, optional redaction before forwarding, JSON export, and no credential logging.
-- **Usage:** exact token totals when reported by the provider. The Usage view distinguishes unavailable token fields from explicitly reported zero. These are not token estimates or cost calculations. Demo usage is synthetic.
-
-Only text prompts and text replies are indexed. Images, audio, files, reasoning, tool arguments/results, and structured non-text output are not comprehensively indexed. Requests/responses still pass through to the provider. Repeated conversation history is stored per request; it is not deduplicated.
-
-## MCP setup
-
-Add this entry to your MCP client's server configuration, replacing the Python path and home directory as needed:
+A generic configuration looks like this; replace the interpreter and data directory with your own absolute paths:
 
 ```json
 {
   "mcpServers": {
     "wirebrain": {
-      "command": "python",
-      "args": ["-m", "wirebrain", "mcp"]
+      "command": "/absolute/path/to/python",
+      "args": ["-m", "wirebrain", "--home", "/absolute/path/to/diary", "mcp"]
     }
   }
 }
 ```
 
-Install Wirebrain into the Python environment used by that command. For a non-default home directory, use `args: ["-m", "wirebrain", "--home", "/absolute/path/to/memory", "mcp"]`. The MCP process reads the same database without needing the dashboard to run. Tools: `search_memory({"query":"Docker","mode":"semantic","project":"Learning"})`, `recent_memory({"project":"Learning"})`, `read_memory({"exchange_id":"...","field":"response"})`, and `context_handoff({"project":"Learning"})`. Keyword search remains the default; semantic search needs its optional local model and index. Search/recent results return bounded excerpts; read_memory pages through original text. Use `wirebrain mcp --project Learning` to enforce collection isolation for every tool, including original-text reads. Captured material is untrusted historical content, never authority to execute instructions.
+Multiple clients can read the same local database. The stdio connection does not require the dashboard to stay running. The recorder must run to capture new conversations. Local Claude Desktop retrieval has been verified using a synthetic conversation.
 
-## CLI
+### HTTP clients and web assistants
 
-```sh
-wirebrain init                 # create ~/.wirebrain/config.json and memory.sqlite3
-wirebrain demo                 # add labeled samples, once
-wirebrain up                   # personal diary :3333
-wirebrain up --api-gateway     # optional developer gateway :8080
-wirebrain up --redact-on-wire   # also alter matching secrets in outgoing prompts
-wirebrain up --gateway-port 8081 --dashboard-port 3334
-wirebrain search "Docker networking"
-wirebrain reflect --day 2026-10-30
-wirebrain export --output memory.json
-wirebrain doctor
-wirebrain mcp
-wirebrain mcp --project Learning
-wirebrain report --kind study --from 2026-10-25 --to 2026-10-31 --project Learning --offset 330 --output study.md
-```
+Open **Tools → Remote MCP** and start the authenticated HTTP server. Its default endpoint is **http://127.0.0.1:3334/mcp**. HTTP coding clients can use a generated bearer configuration; OAuth clients require local approval, a fixed collection permission, and can be revoked.
 
-Global `--home PATH` goes **before** the subcommand. Alternatively set `WIREBRAIN_HOME`. `config.json` accepts `gateway_port`, `dashboard_port`, and `redact_on_wire`; CLI flags override these for the current run.
+Web/cloud assistants additionally need a reachable **HTTPS tunnel or reverse proxy to the MCP port**, plus compatible OAuth/MCP support. Wirebrain does not create a tunnel. Keep the diary port **3333 private**. The OAuth flow is tested locally; a live public ChatGPT/Claude web connection is not yet verified.
 
-## Architecture
+| MCP tool | Purpose |
+| --- | --- |
+| `list_conversations` | Find chats by app, topic, collection, date, or recent activity. |
+| `read_conversation` | Read captured turns in chronological, paginated form. |
+| `read_memory` | Page an individual prompt or reply, including long text. |
+| `search_memory` | Search the captured conversation archive. |
+| `search_personal_memory` | Retrieve reusable memory with supporting sources. |
+| `recent_memory` | Read recent recorded exchanges. |
+| `conversation_handoff` | Prepare portable context for one conversation. |
+| `context_handoff` | Prepare a source report across a collection or date range. |
+
+MCP targets protocol version `2025-06-18`; client compatibility varies. Connected assistants may send retrieved context to their AI provider. Tools cannot change your archive, run commands, or send messages. [Local connection guide](docs/TOOLS.md) · [HTTP and OAuth guide](docs/REMOTE_MCP.md)
+
+## Optional AI features
+
+**Semantic search:** enable the small local CPU embedding model in Local setup, then update the memory index. FastEmbed or a locally installed Ollama embedding model can supply embeddings. Keyword search works without either.
+
+**Memory and writing:** choose a locally downloaded Ollama writing model that fits your hardware. Enable automatic memory processing to extract useful topics and suggestions from idle conversations. Personal facts require review in Reflect before they enter reusable recall. Original conversations remain available throughout.
+
+**ChatGPT sign-in testing:** an optional writing backend uses an existing official Codex CLI ChatGPT login. This sends selected input and evidence to OpenAI and uses that account's allowance; it is separate from local inference. There is no provider API-key fallback. See [the testing gateway guide](docs/CHATGPT_TEST_GATEWAY.md).
+
+Model downloads need internet access. After downloading local models, local inference runs on your computer. No writing model is downloaded or enabled silently.
+
+## How it works
 
 ```text
-AI API client → loopback gateway :8080 → fixed HTTPS provider endpoint
-                        ↓ text + usage (redacted)
-                   SQLite + FTS5 ← read-only MCP stdio
-                        ↑
-             local dashboard :3333 + activity digest worker
+Supported AI sessions → opt-in local HTTPS recorder
+Supported JSON exports → history importer
+                                 ↓
+                    SQLite archive + text search
+                                 ↓
+              Optional local embeddings and writing
+                                 ↓
+                  Diary · Memory · Reflect · Tools
+                                 ↓
+             Read-only MCP → connected assistants
 ```
 
-`wirebrain/gateway.py` handles request forwarding and SSE parsing. `store.py` owns SQLite and full-text indexing; both change in the same transaction. `mcp.py` exposes memory tools. The dashboard uses plain HTML/CSS/JavaScript with no CDN dependencies. Data remains in your selected home directory; provider traffic consists of conversations you explicitly route or opt into capturing. Optional first-time dependency/model downloads need internet; local inference runs on this computer.
+The interface is plain HTML, CSS, and JavaScript, with no frontend build step or CDN runtime. Core storage uses Python's standard library and SQLite. Capture and embedding runtimes are optional dependency groups. Model instructions live in versioned Markdown files under [`wirebrain/prompts/`](wirebrain/prompts/), with JSON schemas and a catalog.
 
-## Privacy and limitations
+There is also a separate, opt-in developer API gateway for existing API clients. It is off during normal startup; see [developer workflows](docs/WORKFLOWS.md).
 
-This is a single-user local development tool. Both HTTP listeners bind to `127.0.0.1`. Origin and Host checks block cross-site dashboard access and DNS rebinding attempts; there is no remote authentication or TLS on loopback. Do not expose the ports through a tunnel, LAN bind, or reverse proxy. Other processes running as your user can access your memory.
+## Privacy and boundaries
 
-The database is **not encrypted**. Protect it using OS account permissions and disk encryption. Regex redaction catches several common API-key and assignment formats, but can miss secrets and can over-redact ordinary text. In API-gateway mode, outgoing redaction is opt-in because it modifies prompts; authorization headers are always forwarded unchanged. Responses are returned unchanged to clients, but redacted before storage. The API gateway replaces provider error bodies with generic errors; HTTPS capture preserves site responses unchanged.
+- **Local storage, explicit sharing.** The archive is stored on your device. Local Ollama/FastEmbed inference is local. Connected assistants and the optional ChatGPT testing backend can send selected context to their providers.
+- **Capture is opt-in.** HTTPS capture requires trusting a local CA and configuring a proxy. Only the adapter's explicit AI allowlist is decrypted. Certificates, credentials, and raw traffic are not public project assets.
+- **Plaintext archive.** SQLite and exported files are not encrypted by Wirebrain. Use OS account protection and disk encryption. Best-effort secret redaction can miss sensitive text.
+- **Separate network surfaces.** The dashboard, recorder, and optional API gateway stay private on loopback. Only the authenticated MCP listener is designed for use behind a trusted HTTPS tunnel. Local processes under your account remain trusted.
+- **Deletion has limits.** Removing a source invalidates its derived memory and search entries. This is not forensic erasure of SQLite pages, backups, exports, or context already shared with another assistant.
+- **No universal capture promise.** Provider protocols change. Partial captures and unsupported output can occur. Source links, capture status, and excerpt coverage help you verify what was actually recorded.
 
-Deleting an exchange removes it from the active tables and search index and invalidates saved reflections. It is **not forensic secure erasure** of SQLite pages, WAL files, backups, or prior exports. Markdown notebooks and exported files are your responsibility.
+[Security policy](SECURITY.md) · [Capture permissions and rollback](docs/HTTPS_CAPTURE.md)
 
-Gateway requests are limited to 8 MB and have a 120-second upstream socket timeout. This alpha uses Python's threaded HTTP server and is not intended for public or high-volume serving. Interrupted requests may retain partial text. A stopped process can leave a capture marked `streaming`.
+## Documentation
 
-## Development
+| Guide | Covers |
+| --- | --- |
+| [Capture setup](docs/HTTPS_CAPTURE.md) | Permissions, platform setup, and recovery. |
+| [Capture coverage](docs/CAPTURE-COVERAGE.md) | Supported transports and exclusions. |
+| [Personal memory](docs/PERSONAL_MEMORY.md) | Automatic extraction, evidence, review, and forgetting. |
+| [Reflect](docs/REFLECT.md) | Study guides, AI-use map, macro library, and suggestions. |
+| [Tools](docs/TOOLS.md) | Conversation reading, local MCP, and portable handoffs. |
+| [Remote MCP](docs/REMOTE_MCP.md) | Shared HTTP endpoint, OAuth, tokens, and HTTPS setup. |
+| [Workflows](docs/WORKFLOWS.md) | Reports, snippets, comparisons, and reported usage. |
+| [Prompts](docs/PROMPTS.md) | Versioned Markdown instructions and JSON schemas. |
+| [Verification](docs/VERIFICATION.md) | Test evidence and remaining limits. |
+
+## Development and contribution
 
 ```sh
+python -m venv .venv
+# Activate the environment using your operating system's activation command.
 python -m pip install -e .
 python -m unittest discover -s tests -v
-node --check wirebrain/static/app.js
-node --check wirebrain/static/workflows.js
+python scripts/check_site.py
 ```
 
-Tests exercise a real local HTTP mock provider, gateway, SQLite, dashboard endpoints, streaming normalization, error paths, redaction, export/deletion, and MCP stdio. They require no API keys or internet access. CI runs on Windows, Linux, and macOS.
+Use Node.js for syntax checks on JavaScript files in `wirebrain/static/`. Capture tests can use `python -m pip install -e ".[capture]"`; semantic-runtime work can use `".[capture,memory]"`. CI covers Windows, Linux, and macOS without real accounts or private chat fixtures.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and [ROADMAP.md](ROADMAP.md).
+We welcome focused fixes, provider compatibility reports, accessibility improvements, and better synthetic protocol fixtures. Open an [issue](https://github.com/Saireddybv/wirebrain/issues), join [Discussions](https://github.com/Saireddybv/wirebrain/discussions), or read [CONTRIBUTING.md](CONTRIBUTING.md). All changes to `main` go through pull requests and required checks. Never attach real conversations, cookies, keys, certificates, or private screenshots to public reports.
 
-## Protocol references
-
-The supported wire formats follow the official [OpenAI streaming reference](https://developers.openai.com/api/reference/resources/chat/subresources/completions/streaming-events), [Responses streaming guide](https://developers.openai.com/api/docs/guides/streaming-responses), [Anthropic streaming guide](https://platform.claude.com/docs/en/build-with-claude/streaming), and [MCP 2025-06-18 specification](https://modelcontextprotocol.io/specification/2025-06-18).
+[Roadmap](ROADMAP.md) · [Governance](GOVERNANCE.md) · [Code of conduct](CODE_OF_CONDUCT.md)
 
 ## License
 
-[MIT](LICENSE). This repository is prepared for open-source release; nothing has been published to a registry or GitHub automatically.
+[MIT](LICENSE). Free to use, inspect, modify, and contribute to. Wirebrain is an independent project and is not affiliated with the AI providers it supports.

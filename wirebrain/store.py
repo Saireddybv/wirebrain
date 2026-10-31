@@ -62,6 +62,56 @@ class Store:
                   input_reported INTEGER NOT NULL DEFAULT 0, output_reported INTEGER NOT NULL DEFAULT 0);
                 CREATE TABLE IF NOT EXISTS saved_snippets (id TEXT PRIMARY KEY, exchange_id TEXT NOT NULL,
                   title TEXT NOT NULL, content TEXT NOT NULL, language TEXT NOT NULL, created TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS personal_memory (
+                  id TEXT PRIMARY KEY, fact_key TEXT UNIQUE NOT NULL, text TEXT NOT NULL,
+                  kind TEXT NOT NULL, scope TEXT NOT NULL, status TEXT NOT NULL,
+                  created TEXT NOT NULL, updated TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS personal_memory_sources (
+                  memory_id TEXT NOT NULL, exchange_id TEXT NOT NULL, quote TEXT NOT NULL,
+                  PRIMARY KEY(memory_id,exchange_id));
+                CREATE TABLE IF NOT EXISTS personal_memory_inputs (
+                  exchange_id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, model TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS personal_memory_exclusions (exchange_id TEXT PRIMARY KEY);
+                CREATE TABLE IF NOT EXISTS personal_memory_blocks (fact_key TEXT PRIMARY KEY);
+                CREATE TABLE IF NOT EXISTS personal_memory_state (id INTEGER PRIMARY KEY CHECK(id=1), body TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS personal_memory_versions (
+                  memory_id TEXT NOT NULL, text TEXT NOT NULL, scope TEXT NOT NULL, updated TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS personal_memory_vectors (
+                  memory_id TEXT PRIMARY KEY, model TEXT NOT NULL, hash TEXT NOT NULL, vector TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS personal_memory_queue (exchange_id TEXT PRIMARY KEY, revision INTEGER NOT NULL DEFAULT 1);
+                CREATE TABLE IF NOT EXISTS memory_rollups (
+                  provider TEXT NOT NULL, scope TEXT NOT NULL, fingerprint TEXT NOT NULL,
+                  body TEXT NOT NULL, updated TEXT NOT NULL, PRIMARY KEY(provider,scope));
+                CREATE TABLE IF NOT EXISTS reflect_macro_blocks (content_hash TEXT PRIMARY KEY);
+                CREATE TRIGGER IF NOT EXISTS reflect_macro_invalidate AFTER UPDATE OF prompt,response,project ON conversations
+                WHEN OLD.prompt IS NOT NEW.prompt OR OLD.response IS NOT NEW.response OR OLD.project IS NOT NEW.project BEGIN
+                  DELETE FROM saved_snippets WHERE exchange_id=NEW.id AND language LIKE 'macro:%';
+                END;
+                CREATE TRIGGER IF NOT EXISTS memory_rollup_invalidate_delete AFTER DELETE ON personal_memory BEGIN
+                  DELETE FROM memory_rollups;
+                END;
+                CREATE TRIGGER IF NOT EXISTS memory_rollup_invalidate_update AFTER UPDATE ON personal_memory BEGIN
+                  DELETE FROM memory_rollups;
+                END;
+                CREATE INDEX IF NOT EXISTS personal_memory_scope_index ON personal_memory(status,scope,updated);
+                CREATE INDEX IF NOT EXISTS personal_memory_source_index ON personal_memory_sources(exchange_id);
+                CREATE TRIGGER IF NOT EXISTS personal_memory_enqueue_insert AFTER INSERT ON conversations BEGIN
+                  INSERT OR IGNORE INTO personal_memory_queue(exchange_id) VALUES (NEW.id);
+                END;
+                CREATE TRIGGER IF NOT EXISTS personal_memory_enqueue_update AFTER UPDATE OF prompt,project,status ON conversations
+                WHEN OLD.prompt IS NOT NEW.prompt OR OLD.project IS NOT NEW.project OR OLD.status IS NOT NEW.status BEGIN
+                  INSERT INTO personal_memory_queue VALUES (NEW.id,1) ON CONFLICT(exchange_id) DO UPDATE SET revision=revision+1;
+                END;
+                CREATE TRIGGER IF NOT EXISTS personal_memory_invalidate_update AFTER UPDATE OF prompt,project ON conversations
+                WHEN OLD.prompt IS NOT NEW.prompt OR OLD.project IS NOT NEW.project BEGIN
+                  DELETE FROM personal_memory WHERE id IN (SELECT memory_id FROM personal_memory_sources WHERE exchange_id=NEW.id);
+                  DELETE FROM personal_memory_sources WHERE memory_id NOT IN (SELECT id FROM personal_memory);
+                  DELETE FROM personal_memory_versions WHERE memory_id NOT IN (SELECT id FROM personal_memory);
+                  DELETE FROM personal_memory_vectors WHERE memory_id NOT IN (SELECT id FROM personal_memory);
+                  DELETE FROM personal_memory_inputs WHERE exchange_id=NEW.id;
+                END;
+                INSERT OR IGNORE INTO personal_memory_queue(exchange_id)
+                  SELECT c.id FROM conversations c LEFT JOIN personal_memory_inputs i ON i.exchange_id=c.id WHERE i.exchange_id IS NULL;
             """)
             db.execute('BEGIN IMMEDIATE')
             columns = {row['name'] for row in db.execute('PRAGMA table_info(usage_metadata)')}
@@ -220,6 +270,9 @@ class Store:
 
     def delete(self, ident):
         with self.connect() as db:
+            from .personal_memory import invalidate_source
+            invalidate_source(db, ident)
+            db.execute('DELETE FROM personal_memory_queue WHERE exchange_id=?', (ident,))
             db.execute("DELETE FROM memory_fts WHERE id=?", (ident,))
             db.execute("DELETE FROM conversations WHERE id=?", (ident,))
             db.execute("DELETE FROM memory_vectors WHERE exchange_id=?", (ident,))

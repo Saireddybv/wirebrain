@@ -1,6 +1,6 @@
 # Search visibility
 
-The public project site is https://saireddybv.github.io/wirebrain/. It is plain HTML and CSS served from `main:/docs` with GitHub Pages. It has no JavaScript bundle, tracking, animation, external fonts, or connection to anyone's local diary. GitHub Pages publishes only the public documentation folder; never put real conversations or account data here.
+The public project site is https://saireddybv.github.io/wirebrain/. It is plain HTML and CSS served from `main:/docs` with GitHub Pages. It has no JavaScript bundle, tracking, animation, external fonts, or connection to anyone's local diary. Its neutral light theme uses installed system fonts, white cards, dark text, and blue actions. The product preview is HTML/CSS with explicitly fictional examples; no personal chat screenshots are published. GitHub Pages publishes only the public documentation folder; never put real conversations or account data here.
 
 ## What is configured
 

@@ -14,3 +14,4 @@ include scripts/check_site.py
 recursive-include tests *.py
 include CODE_OF_CONDUCT.md
 include GOVERNANCE.md
+recursive-include wirebrain/prompts *.md *.json

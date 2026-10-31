@@ -9,6 +9,8 @@ function workflowPeriod(period){
 }
 function workflowInvalidate(){
   workflowRevision++;workflowReport=null;workflowSnippets=[];
+  resetConversationTools();
+  if(typeof remoteMcp==='function')remoteMcp();
   $('#report-actions').hidden=true;
   for(const id of ['learning-topics','report-result','report-sources','snippet-results','comparison-result','usage-results','mcp-config'])$('#'+id).replaceChildren();
   for(const id of ['compare-left','compare-right']){$('#'+id).replaceChildren(node('option','','Choose a moment'));$('#'+id).firstChild.value='';}
@@ -49,7 +51,8 @@ $('#report-form').onsubmit=event=>{
 async function workflowCopy(text){try{await navigator.clipboard.writeText(text);toast('Copied.');}catch{toast('Copy is unavailable here. Select the text or download a copy.');}}
 $('#copy-report').onclick=()=>{if(workflowReport)workflowCopy(workflowReport.body);};
 $('#export-report').onclick=()=>{if(workflowReport)download(workflowReport.body,workflowReport.filename);};
-$('#make-mcp-config').onclick=()=>workflowRequest($('#make-mcp-config'),'Preparing your coding-assistant connection…','/api/workflows/mcp-config',workflowScope(),result=>{$('#mcp-config').textContent=JSON.stringify(result,null,2);$('#workflow-status').textContent=$('#workflow-project').value?'Connection restricted to '+$('#workflow-project').value+'.':'This connection can read all your recorded collections.';});
+$('#make-mcp-config').onclick=()=>workflowRequest($('#make-mcp-config'),'Preparing your assistant connection…','/api/workflows/mcp-config',workflowScope(),result=>{$('#mcp-config').textContent=JSON.stringify(result,null,2);$('#copy-mcp-config').hidden=false;$('#workflow-status').textContent=$('#workflow-project').value?'Connection restricted to '+$('#workflow-project').value+'.':'This connection can read all your recorded collections.';});
+$('#copy-mcp-config').onclick=()=>workflowCopy($('#mcp-config').textContent);
 function workflowFilteredSnippets(){const query=$('#snippet-query').value.toLowerCase();return workflowSnippets.filter(item=>(!$('#saved-snippets-only').checked||item.saved)&&(!query||[item.title,item.content,item.language].join(' ').toLowerCase().includes(query)));}
 function workflowRenderSnippets(){
   const target=$('#snippet-results'),items=workflowFilteredSnippets();target.replaceChildren();

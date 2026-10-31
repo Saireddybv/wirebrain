@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wirebrain — Local AI Memory for ChatGPT &amp; Claude</title>
+  <meta name="description" content="Keep and search your ChatGPT and Claude conversations with Wirebrain, an open-source AI memory diary. Local storage, semantic search, and MCP context sharing.">
+  <link rel="canonical" href="https://saireddybv.github.io/wirebrain/">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/site.css">
+  <meta name="theme-color" content="#faf9f6">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Wirebrain">
+  <meta property="og:title" content="Wirebrain — A personal diary for your AI conversations">
+  <meta property="og:description" content="An open-source, local-first place to keep, search, and reuse your ChatGPT and Claude conversations.">
+  <meta property="og:url" content="https://saireddybv.github.io/wirebrain/">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Wirebrain — Local AI memory">
+  <meta name="twitter:description" content="Keep your AI conversations in one searchable personal diary. Open source and stored on your device.">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Wirebrain",
+    "url": "https://saireddybv.github.io/wirebrain/",
+    "description": "An open-source local AI conversation diary with keyword and semantic memory search, collections, source-linked reports, and MCP tools.",
+    "applicationCategory": "ProductivityApplication",
+    "operatingSystem": "Windows, macOS",
+    "softwareRequirements": "Python 3.11 or newer. Internet access for initial dependency and model downloads.",
+    "license": "https://github.com/Saireddybv/wirebrain/blob/main/LICENSE",
+    "isAccessibleForFree": true,
+    "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+    "author": {"@type": "Person", "name": "Saireddybv", "url": "https://github.com/Saireddybv"},
+    "sameAs": "https://github.com/Saireddybv/wirebrain"
+  }
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <a class="brand" href="./" aria-label="Wirebrain home">wirebrain<span aria-hidden="true">.</span></a>
+    <nav aria-label="Main navigation">
+      <a href="#features">Features</a>
+      <a href="#setup">Get started</a>
+      <a href="https://github.com/Saireddybv/wirebrain">GitHub <span aria-hidden="true">↗</span></a>
+    </nav>
+  </header>
+  <main id="main">
+    <section class="hero" aria-labelledby="intro">
+      <p class="eyebrow">Open source. Local first. Yours.</p>
+      <h1 id="intro">A personal diary for<br>your AI conversations.</h1>
+      <p class="lead">Good thinking gets scattered across chats. Wirebrain keeps your ChatGPT and Claude conversations in one searchable place on your device.</p>
+      <div class="actions">
+        <a class="button" href="#setup">Get started</a>
+        <a class="text-link" href="https://github.com/Saireddybv/wirebrain">Explore the source <span aria-hidden="true">↗</span></a>
+      </div>
+      <p class="fine-print">Free under the MIT license · Python 3.11+ · No analytics</p>
+    </section>
+
+    <section id="features" aria-labelledby="features-title">
+      <p class="eyebrow">Less searching. More remembering.</p>
+      <h2 id="features-title">Your thinking, within reach.</h2>
+      <dl class="features">
+        <div><dt>Find that conversation</dt><dd>Search by exact words or use an optional local embedding model to search by meaning. Open the original prompt and response for context.</dd></div>
+        <div><dt>Keep things together</dt><dd>Organize conversations into collections, filter by AI source, and mark useful moments as Favorites.</dd></div>
+        <div><dt>Carry context forward</dt><dd>Give MCP-compatible coding assistants access to selected memories. Create source-linked handoffs, study guides, and weekly reports.</dd></div>
+        <div><dt>Look back on your day</dt><dd>Add personal notes and revisit your work. An optional local Ollama model can help draft a reflection grounded in captured conversations.</dd></div>
+      </dl>
+    </section>
+
+    <section class="privacy" aria-labelledby="privacy-title">
+      <p class="eyebrow">A little space of your own</p>
+      <h2 id="privacy-title">Your diary stays on your device.</h2>
+      <p>Wirebrain stores conversations in a local SQLite database. You can import chat history or opt into capture for supported sessions. Local search and writing models are optional; the diary works without a provider API key.</p>
+      <p class="muted">The archive is not encrypted. Existing-session capture uses a local HTTPS proxy and requires your explicit permission to trust a certificate and change proxy settings. Support varies by app and provider protocol.</p>
+      <a class="text-link" href="https://github.com/Saireddybv/wirebrain/blob/main/SECURITY.md">Read the privacy and security boundaries <span aria-hidden="true">↗</span></a>
+    </section>
+
+    <section id="setup" aria-labelledby="setup-title">
+      <p class="eyebrow">A few steps to begin</p>
+      <h2 id="setup-title">Start your AI memory diary.</h2>
+      <ol class="steps">
+        <li><strong>Install Python 3.11 or newer.</strong> Then <a href="https://github.com/Saireddybv/wirebrain/archive/refs/heads/main.zip">download Wirebrain</a> and extract the folder.</li>
+        <li><strong>Open a terminal in that folder.</strong> Run the source launcher:<pre><code>python start_wirebrain.py</code></pre></li>
+        <li><strong>Open your diary.</strong> The launcher installs dependencies and opens the local dashboard. Import your history, or choose whether to enable supported-session capture.</li>
+      </ol>
+      <p class="muted">Windows: you can also run <code>Start-Wirebrain.ps1</code>. macOS: run <code>bash Start-Wirebrain.command</code>. This is a source launcher, not a signed desktop installer. The first setup needs internet access. Live capture on macOS is not yet verified.</p>
+      <a class="text-link" href="https://github.com/Saireddybv/wirebrain#start-from-a-downloaded-checkout">Full setup and compatibility notes <span aria-hidden="true">↗</span></a>
+    </section>
+
+    <section class="faq" aria-labelledby="faq-title">
+      <h2 id="faq-title">A few common questions.</h2>
+      <details><summary>What is local AI memory?</summary><p>It is a searchable record of your AI conversations stored on your own device. Wirebrain helps you find past decisions, reuse useful answers, and bring context into a new session.</p></details>
+      <details><summary>Do I need ChatGPT or Claude API keys?</summary><p>No provider API key is needed for history imports or supported existing-session capture. Wirebrain also has a separate optional API gateway for people who want it.</p></details>
+      <details><summary>Does it capture every AI app?</summary><p>No. Capture depends on supported provider protocols and whether the app uses your local proxy. Some apps bypass proxies or reject locally trusted certificates. Check the <a href="https://github.com/Saireddybv/wirebrain/blob/main/docs/HTTPS_CAPTURE.md">capture guide</a> before enabling it.</p></details>
+      <details><summary>Can I search without a local LLM?</summary><p>Yes. Keyword search works without a model. Semantic search can use a small local CPU embedding model; generated answers and reflections optionally use a separate Ollama writing model.</p></details>
+      <details><summary>Is Wirebrain free and open source?</summary><p>Yes. The code is available under the MIT license. You can inspect it, run it locally, and contribute through GitHub.</p></details>
+    </section>
+  </main>
+  <footer>
+    <p>Git tracks your code. Wirebrain keeps the thinking around it.</p>
+    <nav aria-label="Project links">
+      <a href="https://github.com/Saireddybv/wirebrain">Source</a>
+      <a href="https://github.com/Saireddybv/wirebrain/discussions">Community</a>
+      <a href="https://github.com/Saireddybv/wirebrain/blob/main/CONTRIBUTING.md">Contribute</a>
+      <a href="sitemap.xml">Sitemap</a>
+    </nav>
+  </footer>
+</body>
+</html>

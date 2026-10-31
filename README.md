@@ -1,8 +1,10 @@
-# Wirebrain
+# Wirebrain — Local AI Memory for ChatGPT and Claude
 
-**A personal diary for your AI conversations.**
+**A personal diary for your AI conversations. Git tracks your code; Wirebrain keeps the thinking around it.**
 
-A local conversation recorder that turns your AI work into searchable personal memory. SQLite storage, a quiet dashboard, and an optional HTTPS capture service for your existing ChatGPT and Claude sessions. MIT licensed. No analytics or frontend build step.
+An open-source, local-first AI memory tool that turns your conversations into searchable personal memory. Keep ChatGPT and Claude conversations in a local SQLite archive, search by keywords or meaning, and share selected context with MCP-compatible coding assistants. Includes a personal diary dashboard and optional HTTPS capture for supported existing sessions. MIT licensed. No analytics or frontend build step.
+
+[Project website](https://saireddybv.github.io/wirebrain/) · [Get started](#start-from-a-downloaded-checkout) · [Capture compatibility](docs/HTTPS_CAPTURE.md) · [Contribute](CONTRIBUTING.md)
 
 - Keep supported ChatGPT, Claude, and optional API conversations in one local archive.
 - Let an MCP-compatible coding assistant search the context you discussed elsewhere.

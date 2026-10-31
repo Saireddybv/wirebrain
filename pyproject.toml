@@ -5,11 +5,18 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "wirebrain-local"
 version = "0.1.0"
-description = "A local-first memory gateway for your AI conversations"
+description = "Local-first AI conversation diary with semantic memory search and MCP tools"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 dependencies = []
+keywords = ["ai-memory", "chatgpt", "claude", "local-first", "semantic-search", "mcp", "conversation-history"]
+
+[project.urls]
+Homepage = "https://saireddybv.github.io/wirebrain/"
+Repository = "https://github.com/Saireddybv/wirebrain"
+Documentation = "https://github.com/Saireddybv/wirebrain#start-from-a-downloaded-checkout"
+Issues = "https://github.com/Saireddybv/wirebrain/issues"
 
 [project.optional-dependencies]
 capture = ["mitmproxy>=11,<12"]

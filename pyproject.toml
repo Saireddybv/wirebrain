@@ -20,7 +20,7 @@ Issues = "https://github.com/Saireddybv/wirebrain/issues"
 
 [project.optional-dependencies]
 capture = ["mitmproxy>=11,<12"]
-memory = ["fastembed>=0.7,<0.8", "huggingface-hub>=0.20,<1.0"]
+memory = ["fastembed>=0.7,<0.10", "huggingface-hub>=0.20,<3.0"]
 
 [project.scripts]
 wirebrain = "wirebrain.cli:main"

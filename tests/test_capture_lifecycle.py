@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from wirebrain.capture import reset_proxy, set_proxy, recover_proxy
+from wirebrain.capture import reset_proxy, set_proxy, recover_proxy, setup_needed, start_background
 from wirebrain.store import Store
 
 
@@ -24,6 +24,52 @@ class CaptureStateTests(unittest.TestCase):
             self.assertTrue(store.capture_stop())
             store.capture_stop(False)
             self.assertFalse(store.capture_stop())
+
+
+class SetupNeededTests(unittest.TestCase):
+    def test_unconfigured_home_reports_setup_and_refuses_resume(self):
+        with tempfile.TemporaryDirectory() as directory, patch('wirebrain.capture.sys.platform', 'darwin'), patch('wirebrain.capture.os.name', 'posix'):
+            self.assertIn('one-time device setup', setup_needed(directory))
+            with self.assertRaises(ValueError):
+                start_background(directory)
+
+
+class ResumeAfterPauseTests(unittest.TestCase):
+    def test_resume_while_pause_is_in_flight_waits_then_restarts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = Store(directory)
+            store.capture_state({'running': True, 'heartbeat': time.time()})
+            store.capture_stop(True)
+            def recorder_exits(_seconds):
+                store.capture_state({'running': False, 'heartbeat': time.time()})
+            with patch('wirebrain.capture.setup_needed', return_value=None), patch('wirebrain.capture.executable'), \
+                 patch('wirebrain.capture.time.sleep', side_effect=recorder_exits), patch('wirebrain.capture.subprocess.Popen') as popen, patch('threading.Thread'):
+                self.assertEqual(start_background(directory).get('starting'), True)
+                popen.assert_called_once()
+
+    def test_resume_while_running_is_a_noop(self):
+        with tempfile.TemporaryDirectory() as directory:
+            Store(directory).capture_state({'running': True, 'heartbeat': time.time()})
+            with patch('wirebrain.capture.subprocess.Popen') as popen:
+                self.assertEqual(start_background(directory), {'ok': True})
+                popen.assert_not_called()
+
+
+class PortReuseTests(unittest.TestCase):
+    @unittest.skipIf(os.name == 'nt', 'POSIX TIME_WAIT behaviour')
+    def test_restart_bind_check_survives_time_wait_but_not_live_listener(self):
+        import socket
+        from wirebrain.capture import run
+        listener = socket.socket(); listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        listener.bind(('127.0.0.1', 0)); listener.listen(); port = listener.getsockname()[1]
+        client = socket.create_connection(('127.0.0.1', port)); server_side, _ = listener.accept()
+        with tempfile.TemporaryDirectory() as directory:
+            with patch('wirebrain.capture.subprocess.Popen', side_effect=RuntimeError('past bind check')):
+                with self.assertRaises(OSError):      # live listener is still refused
+                    run(directory, port)
+                server_side.close(); client.close(); listener.close()   # leaves TIME_WAIT on the port
+                with self.assertRaises(RuntimeError):  # bind check passed, reached Popen
+                    run(directory, port)
 
 
 class RecoveryTests(unittest.TestCase):

@@ -138,17 +138,30 @@ def recover_proxy(home):
         raise ValueError('The previous recorder is still listening. Close it before restarting.')
 
 
-def start_background(home):
-    """Resume the already-authorized recorder, without changing certificate trust."""
-    if Store(home).capture_state().get('running'): return {'ok':True}
-    if os.name != 'nt' and sys.platform != 'darwin': raise ValueError('Automatic recording setup supports Windows and macOS')
+def setup_needed(home):
+    """Why the dashboard cannot resume recording yet, or None when it can."""
+    if os.name != 'nt' and sys.platform != 'darwin': return 'Automatic recording setup supports Windows and macOS'
     cert = Path(home) / 'certificates' / 'mitmproxy-ca-cert.pem'
-    if not cert.exists(): raise ValueError('Recording needs its one-time device setup first')
+    if not cert.exists(): return 'Recording needs its one-time device setup first'
     der = ssl.PEM_cert_to_DER_cert(cert.read_text(encoding='ascii'))
     if os.name == 'nt' and not any(c[0] == der for c in ssl.enum_certificates('ROOT')):
-        raise ValueError('Recording needs its local certificate setup first')
+        return 'Recording needs its local certificate setup first'
     if sys.platform == 'darwin' and not (Path(home)/'mac-capture-authorized').exists():
-        raise ValueError('Complete the one-time macOS capture setup first')
+        return 'Complete the one-time macOS capture setup first'
+    return None
+
+
+def start_background(home):
+    """Resume the already-authorized recorder, without changing certificate trust."""
+    store = Store(home)
+    if store.capture_state().get('running'):
+        if not store.capture_stop(): return {'ok':True}
+        # A pause is still in flight: let that recorder exit, then start a fresh one.
+        deadline = time.monotonic() + 15
+        while store.capture_state().get('running') and time.monotonic() < deadline: time.sleep(.25)
+        if store.capture_state().get('running'): raise ValueError('The recorder is still pausing. Try resuming again in a moment.')
+    reason = setup_needed(home)
+    if reason: raise ValueError(reason)
     executable()  # Check the optional runtime before accepting the request.
     recover_proxy(home)
     Store(home).capture_state({'running':False, 'starting':True, 'heartbeat':time.time()})
@@ -177,6 +190,10 @@ def run(home, port=8082, install_ca=False, system_proxy=False):
         raise ValueError("Run wirebrain capture-reset to restore the previous proxy first")
     # Refuse to hijack an existing listener.
     with socket.socket() as sock:
+        # After a pause, TIME_WAIT sockets keep the port busy for ~30s on POSIX and make a plain
+        # bind fail, so Resume could not restart. SO_REUSEADDR still refuses a live listener there.
+        # On Windows it would allow sharing a live listener, so it stays off.
+        if os.name != "nt": sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind(("127.0.0.1", port))
     env = {**os.environ, "WIREBRAIN_HOME": str(Path(home).resolve())}
     proc = subprocess.Popen(command(home, port), env=env)

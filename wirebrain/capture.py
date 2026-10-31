@@ -138,17 +138,24 @@ def recover_proxy(home):
         raise ValueError('The previous recorder is still listening. Close it before restarting.')
 
 
+def setup_needed(home):
+    """Why the dashboard cannot resume recording yet, or None when it can."""
+    if os.name != 'nt' and sys.platform != 'darwin': return 'Automatic recording setup supports Windows and macOS'
+    cert = Path(home) / 'certificates' / 'mitmproxy-ca-cert.pem'
+    if not cert.exists(): return 'Recording needs its one-time device setup first'
+    der = ssl.PEM_cert_to_DER_cert(cert.read_text(encoding='ascii'))
+    if os.name == 'nt' and not any(c[0] == der for c in ssl.enum_certificates('ROOT')):
+        return 'Recording needs its local certificate setup first'
+    if sys.platform == 'darwin' and not (Path(home)/'mac-capture-authorized').exists():
+        return 'Complete the one-time macOS capture setup first'
+    return None
+
+
 def start_background(home):
     """Resume the already-authorized recorder, without changing certificate trust."""
     if Store(home).capture_state().get('running'): return {'ok':True}
-    if os.name != 'nt' and sys.platform != 'darwin': raise ValueError('Automatic recording setup supports Windows and macOS')
-    cert = Path(home) / 'certificates' / 'mitmproxy-ca-cert.pem'
-    if not cert.exists(): raise ValueError('Recording needs its one-time device setup first')
-    der = ssl.PEM_cert_to_DER_cert(cert.read_text(encoding='ascii'))
-    if os.name == 'nt' and not any(c[0] == der for c in ssl.enum_certificates('ROOT')):
-        raise ValueError('Recording needs its local certificate setup first')
-    if sys.platform == 'darwin' and not (Path(home)/'mac-capture-authorized').exists():
-        raise ValueError('Complete the one-time macOS capture setup first')
+    reason = setup_needed(home)
+    if reason: raise ValueError(reason)
     executable()  # Check the optional runtime before accepting the request.
     recover_proxy(home)
     Store(home).capture_state({'running':False, 'starting':True, 'heartbeat':time.time()})

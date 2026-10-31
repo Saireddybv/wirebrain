@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from wirebrain.capture import reset_proxy, set_proxy, recover_proxy
+from wirebrain.capture import reset_proxy, set_proxy, recover_proxy, setup_needed, start_background
 from wirebrain.store import Store
 
 
@@ -24,6 +24,14 @@ class CaptureStateTests(unittest.TestCase):
             self.assertTrue(store.capture_stop())
             store.capture_stop(False)
             self.assertFalse(store.capture_stop())
+
+
+class SetupNeededTests(unittest.TestCase):
+    def test_unconfigured_home_reports_setup_and_refuses_resume(self):
+        with tempfile.TemporaryDirectory() as directory, patch('wirebrain.capture.sys.platform', 'darwin'), patch('wirebrain.capture.os.name', 'posix'):
+            self.assertIn('one-time device setup', setup_needed(directory))
+            with self.assertRaises(ValueError):
+                start_background(directory)
 
 
 class RecoveryTests(unittest.TestCase):

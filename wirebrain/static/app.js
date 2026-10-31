@@ -98,7 +98,9 @@ function setRecording(capture){
   $('#recording-chip').setAttribute('aria-label',`Recording ${running?'is on':starting?'is starting':'is paused'}. Open recording controls`);
   $('#recording-dot').classList.toggle('off',!running);$('#recording-title').textContent=running?'Your diary is remembering':starting?'Getting ready to remember':'Recording is paused';
   $('#capture-status').textContent=running?(capture.system_proxy?'Your recorder is connected. Supported text conversations are saved on this computer.':'The recorder is open, but your apps are not connected to it yet.'):starting?'Your recorder is starting. This can take a few moments.':'Your memories are still here. Resume when you want to capture new conversations.';
-  $('#recording-toggle').textContent=running?'Pause recording':starting?'Starting…':'Resume recording';$('#recording-toggle').disabled=Boolean(starting);$('#recording-toggle').dataset.running=String(running);
+  const setup=!running&&!starting&&capture.setup_needed;
+  if(setup){$('#recording-title').textContent='Recording needs one-time setup';$('#capture-status').textContent='Your memories are still here. To record new conversations, stop the launcher and run "python start_wirebrain.py" again, then type yes when it asks to enable capture. Resume works after that.';}
+  $('#recording-toggle').textContent=running?'Pause recording':starting?'Starting…':setup?'Setup needed':'Resume recording';$('#recording-toggle').disabled=Boolean(starting||setup);$('#recording-toggle').dataset.running=String(running);
 }
 async function refresh(){
   if(busy){pending=true;return;}busy=true;const version=revision,snapshot={day:selectedDay,view,query};

@@ -25,6 +25,9 @@ def generation_request(host, path, body):
         if not re.fullmatch(r"/backend-api/(?:f/)?conversation", path):
             return None
     elif provider == "claude":
+        if path == "/claudeai-rpc/anthropic.bard.api.v1alpha.ConversationService/PerformAction":
+            from .claude_rpc import prompt_request
+            return prompt_request(body if isinstance(body, bytes) else str(body).encode())
         if not re.fullmatch(r"/api/organizations/[^/]+/chat_conversations/[^/]+/completion", path):
             return None
     else:

@@ -9,6 +9,7 @@ import sys
 import time
 import ssl
 import hashlib
+import uuid
 from pathlib import Path
 
 from .webcapture import ALLOW_HOSTS
@@ -54,10 +55,10 @@ def notify_windows():
     wininet.InternetSetOptionW(0, 37, 0, 0)
 
 
-def set_proxy(home, port):
+def set_proxy(home, port, session=None):
     if sys.platform == 'darwin':
         from .macos import set_proxy as mac_set
-        return mac_set(home, port)
+        return mac_set(home, port, session=session)
     import winreg
     backup = Path(home) / "proxy-backup.json"
     if backup.exists():
@@ -71,6 +72,9 @@ def set_proxy(home, port):
             except FileNotFoundError:
                 old[name] = None
         old['_connection_flags'] = connection_options()
+        if session:
+            old['_session'] = session
+            old['_capture_server'] = f'127.0.0.1:{port}'
         backup.write_text(json.dumps(old), encoding="utf-8")
         try:
             connection_options(3, f"127.0.0.1:{port}", "localhost;127.*;<local>")
@@ -83,17 +87,32 @@ def set_proxy(home, port):
     notify_windows()
 
 
-def reset_proxy(home):
+def reset_proxy(home, expected_session=None):
     if sys.platform == 'darwin':
         from .macos import reset_proxy as mac_reset
-        return mac_reset(home)
-    if os.name != "nt":
-        raise ValueError("Automatic proxy restoration is currently Windows-only")
-    import winreg
+        return mac_reset(home, expected_session=expected_session)
     backup = Path(home) / "proxy-backup.json"
     if not backup.exists():
         return
+    if os.name != "nt":
+        raise ValueError("Automatic proxy restoration supports Windows and macOS")
+    import winreg
     old = json.loads(backup.read_text(encoding="utf-8"))
+    session = old.pop('_session', None)
+    capture_server = old.pop('_capture_server', None)
+    if expected_session is not None:
+        if session != expected_session:
+            return  # An old guard must never restore a newer capture session.
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Internet Settings", 0, winreg.KEY_READ) as key:
+            try:
+                enabled = winreg.QueryValueEx(key, 'ProxyEnable')[0]
+                server = winreg.QueryValueEx(key, 'ProxyServer')[0]
+            except FileNotFoundError:
+                enabled, server = 0, ''
+        if not enabled or server != capture_server:
+            # Respect a proxy disabled or replaced manually after startup.
+            backup.unlink()
+            return
     flags = old.pop('_connection_flags', None)
     if flags is not None:
         connection_options(flags, (old.get('ProxyServer') or [''])[0], (old.get('ProxyOverride') or [''])[0])
@@ -181,6 +200,8 @@ def run(home, port=8082, install_ca=False, system_proxy=False):
     env = {**os.environ, "WIREBRAIN_HOME": str(Path(home).resolve())}
     proc = subprocess.Popen(command(home, port), env=env)
     changed_proxy = False
+    guard = None
+    session = uuid.uuid4().hex
     store = Store(home)
     store.capture_stop(False)
     try:
@@ -208,7 +229,9 @@ def run(home, port=8082, install_ca=False, system_proxy=False):
                 raise ValueError("The operating system did not install the local capture certificate; system proxy was not changed") from exc
             print("Local capture CA installed in your user trust store.", flush=True)
         if system_proxy:
-            set_proxy(home, port)
+            from .proxy_guard import start as start_guard
+            guard = start_guard(home, session)
+            set_proxy(home, port, session=session)
             changed_proxy = True
         print(f"HTTPS capture listening at 127.0.0.1:{port}\nTargets: ChatGPT, Claude, Gemini, Grok, and Meta AI allowlisted traffic.\nDashboard: run wirebrain up in another terminal.\nCtrl+C stops capture and restores proxy settings.", flush=True)
         if not system_proxy:
@@ -223,8 +246,13 @@ def run(home, port=8082, install_ca=False, system_proxy=False):
         pass
     finally:
         try:
-            if changed_proxy: reset_proxy(home)
+            if changed_proxy: reset_proxy(home, expected_session=session)
         finally:
-            if proc.poll() is None:
-                terminate_process(proc)
-            store.capture_state({"running": False, "heartbeat": time.time()})
+            try:
+                if guard is not None:
+                    from .proxy_guard import finish as finish_guard
+                    finish_guard(guard)
+            finally:
+                if proc.poll() is None:
+                    terminate_process(proc)
+                store.capture_state({"running": False, "heartbeat": time.time()})

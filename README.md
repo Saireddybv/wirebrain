@@ -41,6 +41,8 @@ Reflections are grounded in captured evidence. A repeated question is not a prof
 
 ## Quick start
 
+**Portable datasets:** Open **Download & export** (the down arrow) to download conversational JSONL. Each line is a `{"messages":[{"role":"user","content":"…"},{"role":"assistant","content":"…"}]}` record. Filter by app or collection. Completed captured text is included; demos, partial replies and derived memories are excluded. Known branches become separate paths; missing parent IDs use recorded order. System prompts and missing history are never invented. JSONL is for reuse and training preparation, while **Full diary backup** remains the restorable JSON format. Review personal information before sharing; fine-tuning usually trains assistant responses, so this alone does not create a digital twin of the user.
+
 Install **Python 3.11 or newer**, then run:
 
 ```sh
@@ -60,13 +62,15 @@ Windows also provides `Start-Wirebrain.ps1`; on macOS use `bash Start-Wirebrain.
 
 ### Start and stop
 
-Keep the launcher terminal open while using Wirebrain. **Ctrl+C** stops its foreground processes and restores proxy settings when its recorder exits normally. The diary's recording controls can pause or resume an already-configured recorder.
+Keep the launcher terminal open while using Wirebrain. **Ctrl+C** stops its foreground processes and restores proxy settings. A separate recovery process also restores the proxy if the recorder is killed unexpectedly. The diary's recording controls can pause or resume an already-configured recorder.
 
-If capture ended unexpectedly, restore its saved proxy settings with:
+If the computer loses power, or all Wirebrain processes are killed together, the recovery process cannot run. Restore the saved proxy settings with:
 
 ```sh
 wirebrain --home /absolute/path/to/your/diary capture-reset
 ```
+
+If browsing is blocked and you cannot run Wirebrain, open **Windows Settings → Network & internet → Proxy → Use a proxy server** and turn it off **if the address is Wirebrain's `127.0.0.1:8082`**. Leave any workplace/VPN proxy unchanged. Reload your browser afterward. Pausing capture does not delete recorded conversations.
 
 Use the Python environment created by the launcher when `wirebrain` is not on your PATH. Global `--home` comes before the subcommand. An existing checkout archive is reused; new checkouts default to `~/.wirebrain`. Set `WIREBRAIN_HOME` to choose another location. See [capture setup and recovery](docs/HTTPS_CAPTURE.md).
 

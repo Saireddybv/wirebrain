@@ -29,7 +29,9 @@ The dashboard reports whether the listener is active and whether Windows routing
 
 Click **Stop capture** in the dashboard, or press Ctrl+C in the capture terminal. Previous proxy values are restored before the listener stops. The dashboard can remain running.
 
-If Windows or the process terminates unexpectedly, restore the saved proxy values:
+A separate recovery process starts before Wirebrain changes the system proxy. If the recorder exits abruptly, the recovery process restores that session's saved settings. It leaves a proxy that you manually disabled or replaced alone. Normal stopping also restores settings before shutting down the listener.
+
+Recovery cannot run during a power failure or if all Wirebrain processes are killed together. Restore the saved proxy values manually in those cases:
 
 ```powershell
 .\.venv-capture\Scripts\python.exe -m wirebrain --home .wirebrain capture-reset
@@ -41,7 +43,11 @@ To also remove **this Wirebrain home's exact certificate** from the user trust s
 .\.venv-capture\Scripts\python.exe -m wirebrain --home .wirebrain capture-reset --remove-ca
 ```
 
-The saved proxy backup prevents a second automatic setup from overwriting your original settings. Resolve a leftover backup with `capture-reset` before starting capture again. Avoid changing proxy settings manually while capture runs, because restoration uses the original snapshot.
+If the internet stops working before you can run that command, open **Windows Settings → Network & internet → Proxy**, edit **Use a proxy server**, and turn it off if its address is **`127.0.0.1:8082`** (or your configured capture port). Do not disable an unrelated corporate or VPN proxy. Reload or restart the affected browser. Wirebrain does not need to be running for this emergency step.
+
+The saved proxy backup prevents a second automatic setup from overwriting your original settings. Resolve a leftover backup with `capture-reset` before starting capture again. That explicit command restores the original snapshot; pause capture first if you intend to replace its settings manually.
+
+The system proxy routes proxy-aware web traffic through the local listener, including sites that are not recorded. The interception allowlist controls which HTTPS connections are decrypted; it does not provide a direct-network fallback when the listener is unavailable. Keep capture paused when it is not needed.
 
 ## Capture boundary
 

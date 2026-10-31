@@ -153,7 +153,13 @@ def setup_needed(home):
 
 def start_background(home):
     """Resume the already-authorized recorder, without changing certificate trust."""
-    if Store(home).capture_state().get('running'): return {'ok':True}
+    store = Store(home)
+    if store.capture_state().get('running'):
+        if not store.capture_stop(): return {'ok':True}
+        # A pause is still in flight: let that recorder exit, then start a fresh one.
+        deadline = time.monotonic() + 15
+        while store.capture_state().get('running') and time.monotonic() < deadline: time.sleep(.25)
+        if store.capture_state().get('running'): raise ValueError('The recorder is still pausing. Try resuming again in a moment.')
     reason = setup_needed(home)
     if reason: raise ValueError(reason)
     executable()  # Check the optional runtime before accepting the request.

@@ -34,6 +34,28 @@ class SetupNeededTests(unittest.TestCase):
                 start_background(directory)
 
 
+class ResumeAfterPauseTests(unittest.TestCase):
+    def test_resume_while_pause_is_in_flight_waits_then_restarts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = Store(directory)
+            store.capture_state({'running': True, 'heartbeat': time.time()})
+            store.capture_stop(True)
+            def recorder_exits(_seconds):
+                store.capture_state({'running': False, 'heartbeat': time.time()})
+            with patch('wirebrain.capture.setup_needed', return_value=None), patch('wirebrain.capture.executable'), \
+                 patch('wirebrain.capture.time.sleep', side_effect=recorder_exits), patch('wirebrain.capture.subprocess.Popen') as popen:
+                popen.return_value.wait.return_value = 0
+                self.assertEqual(start_background(directory).get('starting'), True)
+                popen.assert_called_once()
+
+    def test_resume_while_running_is_a_noop(self):
+        with tempfile.TemporaryDirectory() as directory:
+            Store(directory).capture_state({'running': True, 'heartbeat': time.time()})
+            with patch('wirebrain.capture.subprocess.Popen') as popen:
+                self.assertEqual(start_background(directory), {'ok': True})
+                popen.assert_not_called()
+
+
 class RecoveryTests(unittest.TestCase):
     def test_abandoned_proxy_restored_only_when_listener_refuses(self):
         with tempfile.TemporaryDirectory() as directory:

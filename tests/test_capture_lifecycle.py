@@ -83,3 +83,42 @@ class WindowsProxyTests(unittest.TestCase):
             options.assert_any_call(9, 'old.proxy:3128', '')
             self.assertEqual(current, original)
             self.assertFalse((Path(directory) / 'proxy-backup.json').exists())
+
+    def test_guard_only_restores_its_own_session_and_preserves_manual_proxy_changes(self):
+        import winreg
+        current = {'ProxyEnable': [0, winreg.REG_DWORD]}
+
+        def query(key, name):
+            if name not in current: raise FileNotFoundError()
+            return tuple(current[name])
+
+        def write(key, name, reserved, kind, value):
+            current[name] = [value, kind]
+
+        def delete(key, name):
+            if name not in current: raise FileNotFoundError()
+            del current[name]
+
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.object(winreg, 'OpenKey'), \
+             patch.object(winreg, 'QueryValueEx', side_effect=query), \
+             patch.object(winreg, 'SetValueEx', side_effect=write), \
+             patch.object(winreg, 'DeleteValue', side_effect=delete), \
+             patch('wirebrain.capture.notify_windows'), \
+             patch('wirebrain.capture.connection_options', return_value=9):
+            backup = Path(directory) / 'proxy-backup.json'
+            set_proxy(directory, 8082, session='first')
+            reset_proxy(directory, expected_session='older')
+            self.assertTrue(backup.exists())
+            self.assertEqual(current['ProxyEnable'][0], 1)
+            reset_proxy(directory, expected_session='first')
+            self.assertEqual(current, {'ProxyEnable': [0, winreg.REG_DWORD]})
+            self.assertFalse(backup.exists())
+            for enabled, server in ((0, '127.0.0.1:8082'), (1, 'company.proxy:3128')):
+                set_proxy(directory, 8082, session='second')
+                current['ProxyEnable'][0] = enabled
+                current['ProxyServer'][0] = server
+                snapshot = json.loads(json.dumps(current))
+                reset_proxy(directory, expected_session='second')
+                self.assertEqual(current, snapshot)
+                self.assertFalse(backup.exists())

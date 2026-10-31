@@ -46,3 +46,30 @@ class MacCaptureTests(unittest.TestCase):
         network.side_effect=ValueError('Permission denied')
         with self.assertRaises(ValueError):macos.reset_proxy(self.tmp.name)
         self.assertTrue((Path(self.tmp.name)/'proxy-backup.json').exists())
+
+    @patch('wirebrain.macos.network')
+    def test_guard_restores_only_owned_service_settings(self,network):
+        network.side_effect=self.network
+        macos.set_proxy(self.tmp.name,8082,session='current')
+        backup=Path(self.tmp.name)/'proxy-backup.json'
+        self.calls.clear()
+        macos.reset_proxy(self.tmp.name,expected_session='older')
+        self.assertTrue(backup.exists())
+        self.assertEqual(self.calls,[])
+        def active(*args):
+            if args[0] in ('-getwebproxy','-getsecurewebproxy'):
+                return 'Enabled: Yes\nServer: 127.0.0.1\nPort: 8082\n'
+            return self.network(*args)
+        network.side_effect=active
+        macos.reset_proxy(self.tmp.name,expected_session='current')
+        self.assertFalse(backup.exists())
+        self.assertIn(('-setwebproxystate','Wi-Fi','off'),self.calls)
+
+    @patch('wirebrain.macos.network')
+    def test_guard_preserves_manually_disabled_or_replaced_proxy(self,network):
+        network.side_effect=self.network
+        macos.set_proxy(self.tmp.name,8082,session='current')
+        self.calls.clear()
+        macos.reset_proxy(self.tmp.name,expected_session='current')
+        self.assertFalse((Path(self.tmp.name)/'proxy-backup.json').exists())
+        self.assertFalse(any(call[0].startswith('-set') for call in self.calls))

@@ -99,8 +99,10 @@ function setRecording(capture){
   $('#recording-dot').classList.toggle('off',!running);$('#recording-title').textContent=running?'Your diary is remembering':starting?'Getting ready to remember':'Recording is paused';
   $('#capture-status').textContent=running?(capture.system_proxy?'Your recorder is connected. Supported text conversations are saved on this computer.':'The recorder is open, but your apps are not connected to it yet.'):starting?'Your recorder is starting. This can take a few moments.':'Your memories are still here. Resume when you want to capture new conversations.';
   const setup=!running&&!starting&&capture.setup_needed;
+  const stopping=running&&capture.stopping;
+  if(stopping){$('#recording-title').textContent='Pausing the recorder';$('#capture-status').textContent='Your recorder is stopping. You can resume in a moment.';}
   if(setup){$('#recording-title').textContent='Recording needs one-time setup';$('#capture-status').textContent='Your memories are still here. To record new conversations, stop the launcher and run "python start_wirebrain.py" again, then type yes when it asks to enable capture. Resume works after that.';}
-  $('#recording-toggle').textContent=running?'Pause recording':starting?'Starting…':setup?'Setup needed':'Resume recording';$('#recording-toggle').disabled=Boolean(starting||setup);$('#recording-toggle').dataset.running=String(running);
+  $('#recording-toggle').textContent=stopping?'Pausing…':running?'Pause recording':starting?'Starting…':setup?'Setup needed':'Resume recording';$('#recording-toggle').disabled=Boolean(starting||setup||stopping);$('#recording-toggle').dataset.running=String(running);$('#recording-toggle').dataset.stopping=String(Boolean(stopping));
 }
 async function refresh(){
   if(busy){pending=true;return;}busy=true;const version=revision,snapshot={day:selectedDay,view,query};
@@ -137,7 +139,7 @@ async function openMemory(row){
 }
 $('#day-note').oninput=()=>{noteDirty=true;$('#note-status').textContent='A thought in progress…';};
 $('#save-note').onclick=async()=>{const button=$('#save-note'),day=selectedDay,body=$('#day-note').value;button.disabled=true;$('#note-status').textContent='Saving…';try{await post('/api/diary/note',{day,body});if(selectedDay===day&&$('#day-note').value===body){noteDirty=false;diary.note=body;$('#note-status').textContent='Saved. A little thought, kept safe.';}toast('Your note is saved.');lastRender='';await refresh();}catch(error){showError(error);$('#note-status').textContent='Not saved. Please try again.';}finally{button.disabled=false;}};
-$('#recording-toggle').onclick=async()=>{const button=$('#recording-toggle');button.disabled=true;$('#recording-error').hidden=true;try{if(button.dataset.running==='true'){await post('/api/capture/stop',{});toast('Pausing new recordings. Your memories stay here.');}else{await post('/api/capture/start',{});startingAt=Date.now();setRecording({});toast('Starting your recorder…');}await refresh();}catch(error){startingAt=0;$('#recording-error').textContent=error.message;$('#recording-error').hidden=false;}finally{if(!startingAt)button.disabled=false;}};
+$('#recording-toggle').onclick=async()=>{const button=$('#recording-toggle');button.disabled=true;$('#recording-error').hidden=true;try{if(button.dataset.running==='true'){await post('/api/capture/stop',{});toast('Pausing new recordings. Your memories stay here.');}else{await post('/api/capture/start',{});startingAt=Date.now();setRecording({});toast('Starting your recorder…');}await refresh();}catch(error){startingAt=0;$('#recording-error').textContent=error.message;$('#recording-error').hidden=false;}finally{if(!startingAt&&button.dataset.stopping!=='true')button.disabled=false;}};
 function openNotes(focus=false){$('#notes-sheet').showModal();if(focus)$('#day-note').focus();}
 $('#quick-note').onclick=()=>openNotes(true);
 $('#recording-chip').onclick=()=>{$('#recording-dialog').showModal();};

@@ -190,6 +190,10 @@ def run(home, port=8082, install_ca=False, system_proxy=False):
         raise ValueError("Run wirebrain capture-reset to restore the previous proxy first")
     # Refuse to hijack an existing listener.
     with socket.socket() as sock:
+        # After a pause, TIME_WAIT sockets keep the port busy for ~30s on POSIX and make a plain
+        # bind fail, so Resume could not restart. SO_REUSEADDR still refuses a live listener there.
+        # On Windows it would allow sharing a live listener, so it stays off.
+        if os.name != "nt": sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind(("127.0.0.1", port))
     env = {**os.environ, "WIREBRAIN_HOME": str(Path(home).resolve())}
     proc = subprocess.Popen(command(home, port), env=env)

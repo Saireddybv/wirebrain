@@ -53,7 +53,7 @@ class Capture:
 
 def capture_status(store):
     state = store.capture_state()
-    if state.get('running'): return state
+    if state.get('running'): return {**state, 'stopping': bool(store.capture_stop())}
     from .capture import setup_needed
     return {**state, 'setup_needed': setup_needed(store.home)}
 

@@ -43,8 +43,7 @@ class ResumeAfterPauseTests(unittest.TestCase):
             def recorder_exits(_seconds):
                 store.capture_state({'running': False, 'heartbeat': time.time()})
             with patch('wirebrain.capture.setup_needed', return_value=None), patch('wirebrain.capture.executable'), \
-                 patch('wirebrain.capture.time.sleep', side_effect=recorder_exits), patch('wirebrain.capture.subprocess.Popen') as popen:
-                popen.return_value.wait.return_value = 0
+                 patch('wirebrain.capture.time.sleep', side_effect=recorder_exits), patch('wirebrain.capture.subprocess.Popen') as popen, patch('threading.Thread'):
                 self.assertEqual(start_background(directory).get('starting'), True)
                 popen.assert_called_once()
 
@@ -54,6 +53,23 @@ class ResumeAfterPauseTests(unittest.TestCase):
             with patch('wirebrain.capture.subprocess.Popen') as popen:
                 self.assertEqual(start_background(directory), {'ok': True})
                 popen.assert_not_called()
+
+
+class PortReuseTests(unittest.TestCase):
+    @unittest.skipIf(os.name == 'nt', 'POSIX TIME_WAIT behaviour')
+    def test_restart_bind_check_survives_time_wait_but_not_live_listener(self):
+        import socket
+        from wirebrain.capture import run
+        listener = socket.socket(); listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        listener.bind(('127.0.0.1', 0)); listener.listen(); port = listener.getsockname()[1]
+        client = socket.create_connection(('127.0.0.1', port)); server_side, _ = listener.accept()
+        with tempfile.TemporaryDirectory() as directory:
+            with patch('wirebrain.capture.subprocess.Popen', side_effect=RuntimeError('past bind check')):
+                with self.assertRaises(OSError):      # live listener is still refused
+                    run(directory, port)
+                server_side.close(); client.close(); listener.close()   # leaves TIME_WAIT on the port
+                with self.assertRaises(RuntimeError):  # bind check passed, reached Popen
+                    run(directory, port)
 
 
 class RecoveryTests(unittest.TestCase):

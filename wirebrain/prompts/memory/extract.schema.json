@@ -1,0 +1,40 @@
+{
+  "type": "object",
+  "properties": {
+    "memories": {
+      "type": "array",
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "quote": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "preference",
+              "fact",
+              "decision",
+              "goal",
+              "topic"
+            ]
+          }
+        },
+        "required": [
+          "text",
+          "quote",
+          "kind"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "memories"
+  ],
+  "additionalProperties": false
+}

@@ -2,6 +2,8 @@
 
 Thanks for helping make AI memory useful, private, and easy to run locally.
 
+AI prompts live in `wirebrain/prompts/`, grouped by feature with a versioned catalog and explicit variables. See [prompt development](docs/PROMPTS.md) before changing model instructions or structured-output schemas. Use synthetic examples and include relevant behavior-test results in the PR.
+
 ## Propose a change
 
 Use an issue for a reproducible bug or a focused feature proposal. Use Discussions for questions and early ideas. Report vulnerabilities privately using [GitHub security advisories](https://github.com/Saireddybv/wirebrain/security/advisories/new).
@@ -19,6 +21,11 @@ python -m pip install -e .
 python -m unittest discover -s tests -v
 node --check wirebrain/static/app.js
 node --check wirebrain/static/workflows.js
+node --check wirebrain/static/personal-memory.js
+node --check wirebrain/static/reflect.js
+node --check wirebrain/static/conversation-tools.js
+node --check wirebrain/static/mcp-connections.js
+python scripts/check_site.py
 ```
 
 For capture changes, install `python -m pip install -e ".[capture]"` and run the synthetic capture tests. For embedding changes, use `python -m pip install -e ".[capture,memory]"` and `python -m pip check`. Installing these extras does not require changing your system proxy or trusting a certificate.

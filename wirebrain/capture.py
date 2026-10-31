@@ -13,6 +13,7 @@ from pathlib import Path
 
 from .webcapture import ALLOW_HOSTS
 from .store import Store
+from .windows_proxy import connection_options
 
 
 def executable():
@@ -69,8 +70,10 @@ def set_proxy(home, port):
                 old[name] = [value, kind]
             except FileNotFoundError:
                 old[name] = None
+        old['_connection_flags'] = connection_options()
         backup.write_text(json.dumps(old), encoding="utf-8")
         try:
+            connection_options(3, f"127.0.0.1:{port}", "localhost;127.*;<local>")
             winreg.SetValueEx(key, "ProxyServer", 0, winreg.REG_SZ, f"127.0.0.1:{port}")
             winreg.SetValueEx(key, "ProxyOverride", 0, winreg.REG_SZ, "localhost;127.*;<local>")
             winreg.SetValueEx(key, "ProxyEnable", 0, winreg.REG_DWORD, 1)
@@ -91,6 +94,9 @@ def reset_proxy(home):
     if not backup.exists():
         return
     old = json.loads(backup.read_text(encoding="utf-8"))
+    flags = old.pop('_connection_flags', None)
+    if flags is not None:
+        connection_options(flags, (old.get('ProxyServer') or [''])[0], (old.get('ProxyOverride') or [''])[0])
     with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Internet Settings", 0, winreg.KEY_WRITE) as key:
         for name, entry in old.items():
             if entry is None:
@@ -115,6 +121,23 @@ def remove_ca(home):
         subprocess.run(["certutil", "-user", "-delstore", "Root", fingerprint], check=True, capture_output=True)
 
 
+def recover_proxy(home):
+    """Restore an interrupted session only when its proxy is no longer listening."""
+    if not (Path(home)/'proxy-backup.json').exists(): return
+    state = Store(home).capture_state()
+    if state.get('running'):
+        raise ValueError('The recorder is still running. Pause it before restarting.')
+    try:
+        connection = socket.create_connection(('127.0.0.1', state.get('port', 8082)), timeout=3)
+    except ConnectionRefusedError:
+        reset_proxy(home)
+    except OSError as exc:
+        raise ValueError('Could not verify the previous recorder stopped. Try again before recovery.') from exc
+    else:
+        connection.close()
+        raise ValueError('The previous recorder is still listening. Close it before restarting.')
+
+
 def start_background(home):
     """Resume the already-authorized recorder, without changing certificate trust."""
     if Store(home).capture_state().get('running'): return {'ok':True}
@@ -127,14 +150,21 @@ def start_background(home):
     if sys.platform == 'darwin' and not (Path(home)/'mac-capture-authorized').exists():
         raise ValueError('Complete the one-time macOS capture setup first')
     executable()  # Check the optional runtime before accepting the request.
-    if (Path(home)/'proxy-backup.json').exists():
-        raise ValueError('The previous recording session needs recovery before restarting')
+    recover_proxy(home)
+    Store(home).capture_state({'running':False, 'starting':True, 'heartbeat':time.time()})
     with (Path(home)/'capture-runtime.log').open('ab') as log:
         proc = subprocess.Popen([sys.executable,'-m','wirebrain','--home',str(Path(home).resolve()),'capture','--system-proxy'],
                                 stdout=log,stderr=log,creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
     # Reap the launcher when the recorder exits, including after dashboard pause.
     import threading
-    threading.Thread(target=proc.wait,daemon=True).start()
+    def reap():
+        code = proc.wait()
+        state = Store(home).capture_state()
+        if code:
+            Store(home).capture_state({**state,'running':False,'starting':False,
+                'error':'The recorder could not stay running. Open Local setup to check capture dependencies, or inspect capture-runtime.log.',
+                'heartbeat':time.time()})
+    threading.Thread(target=reap,daemon=True).start()
     return {'ok':True,'starting':True}
 
 
@@ -180,7 +210,7 @@ def run(home, port=8082, install_ca=False, system_proxy=False):
         if system_proxy:
             set_proxy(home, port)
             changed_proxy = True
-        print(f"HTTPS capture listening at 127.0.0.1:{port}\nTargets: ChatGPT and Claude generation traffic only.\nDashboard: run wirebrain up in another terminal.\nCtrl+C stops capture and restores proxy settings.", flush=True)
+        print(f"HTTPS capture listening at 127.0.0.1:{port}\nTargets: ChatGPT, Claude, Gemini, Grok, and Meta AI allowlisted traffic.\nDashboard: run wirebrain up in another terminal.\nCtrl+C stops capture and restores proxy settings.", flush=True)
         if not system_proxy:
             print("System proxy is unchanged. No apps are routed here automatically yet.", flush=True)
         if not install_ca:

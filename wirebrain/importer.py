@@ -48,7 +48,14 @@ def import_history(store, data):
         validated_notes.append((day,redact(body),datetime.now(timezone.utc).isoformat()))
     from .workflows import validate_snippet
     original_ids = {row[9] for row in prepared if row[9]}
+    from .personal_memory import validate_import, restore_memories
+    personal_backup = validate_import(data.get('personal_memory',{}) if isinstance(data,dict) and data.get('format')=='wirebrain-diary-v1' else {},
+                                    {row[9]:row[3] for row in prepared if row[9]})
     validated_snippets = []
+    import re
+    macro_blocks=data.get('macro_blocks',[]) if isinstance(data,dict) and data.get('format')=='wirebrain-diary-v1' else []
+    if not isinstance(macro_blocks,list) or any(not isinstance(value,str) or not re.fullmatch('[0-9a-f]{64}',value) for value in macro_blocks):
+        raise ValueError('Invalid removed-template markers')
     for snippet in exported_snippets:
         values = validate_snippet(snippet)
         if snippet.get('exchange_id') not in original_ids: raise ValueError('An imported snippet has no source memory')
@@ -61,6 +68,7 @@ def import_history(store, data):
         if pair.get('status','complete') not in ('complete','streaming','interrupted','error','partial'): raise ValueError('Invalid imported capture status')
     added, links, identifiers = 0, [], {}
     with store.connect() as db:
+        for digest in macro_blocks: db.execute('INSERT OR IGNORE INTO reflect_macro_blocks VALUES (?)',(digest,))
         for ident,created,provider,prompt,response,project,chat,title,favorite,original_id,pair in prepared:
             existing = db.execute('SELECT id FROM conversations WHERE id=? OR (provider=? AND created=? AND prompt=? AND response=?)',(ident,provider,created,prompt,response)).fetchone()
             identifiers[original_id] = existing['id'] if existing else ident
@@ -74,6 +82,9 @@ def import_history(store, data):
                            (ident,int(bool(pair.get('input_reported',pair.get('input_tokens',0)>0))),int(bool(pair.get('output_reported',pair.get('output_tokens',0)>0)))))
             links.append((ident,provider,chat,title)); added += 1
         for original_id,values in validated_snippets:
+            if values['language'].startswith('macro:'):
+                from .reflect_tools import macro_hash
+                if db.execute('SELECT 1 FROM reflect_macro_blocks WHERE content_hash=?',(macro_hash(values['content']),)).fetchone(): continue
             source = identifiers[original_id]
             key = hashlib.sha256((source+'\0'+values['content']).encode()).hexdigest()
             db.execute('INSERT OR IGNORE INTO saved_snippets VALUES (?,?,?,?,?,?)',
@@ -81,6 +92,7 @@ def import_history(store, data):
         for note in validated_notes:
             # Preserve a newer personal note on this device.
             db.execute('INSERT OR IGNORE INTO diary_notes VALUES (?,?,?)',note)
+        restore_memories(db,personal_backup,identifiers)
     for ident,provider,chat,title in links:
         if chat: store.link_exchange(ident,provider,chat,title=title)
     return {'imported':added,'skipped':len(prepared)-added,'notes':len(validated_notes),'snippets':len(validated_snippets)}

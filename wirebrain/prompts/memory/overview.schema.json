@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "properties": {
+    "summary": {
+      "type": "string"
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "integer"
+      }
+    }
+  },
+  "required": [
+    "summary",
+    "sources"
+  ],
+  "additionalProperties": false
+}

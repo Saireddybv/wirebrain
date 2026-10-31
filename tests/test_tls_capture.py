@@ -17,6 +17,8 @@ import urllib.request
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import threading
+from urllib.parse import urlencode
+from wirebrain.extra_webcapture import GEMINI_PATH
 
 from wirebrain.capture import command, terminate_process
 from wirebrain.store import Store
@@ -32,15 +34,31 @@ class TLSCaptureTests(unittest.TestCase):
 
                 def do_POST(self):
                     self.rfile.read(int(self.headers['Content-Length']))
+                    raw = None
+                    content_type = 'text/event-stream'
                     if self.path == '/backend-api/conversation':
                         events = [{'message': {'author': {'role': 'assistant'}, 'content': {'content_type': 'text', 'parts': ['SQLite']}}},
                                   {'p': '/message/content/parts/0', 'o': 'append', 'v': ' uses'},
                                   {'v': ' a local'}, {'v': ' file.'}]
+                    elif self.path == GEMINI_PATH:
+                        candidate=['rc_tls',['Gemini uses snapshots.'],None,None,None,None,None,None,[2]]
+                        data=[None,['c_tls','r_tls'],None,None,[candidate]]
+                        raw=b")]}'\n"+json.dumps([['wrb.fr',None,json.dumps(data)]]).encode()+b'\n'
+                        content_type='text/plain'
+                    elif self.path == '/rest/app-chat/conversations/new':
+                        raw=json.dumps({'result':{'conversation':{'conversationId':'grok-tls'},'response':{'modelResponse':{'message':'Grok uses JSON lines.','responseId':'grok-answer'}}}}).encode()+b'\n'
+                        content_type='application/x-ndjson'
+                    elif self.path == '/api/graphql/':
+                        raw=json.dumps({'data':{'node':{'bot_response_message':{'composed_text':{'content':[{'text':'Meta uses GraphQL snapshots.'}]},'streaming_state':'OVERALL_DONE'}}}}).encode()+b'\n'
+                        content_type='application/json'
                     else:
                         events = [{'type': 'content_block_delta', 'delta': {'type': 'text_delta', 'text': 'Docker uses service names.'}}, {'type': 'message_stop'}]
                     self.send_response(200)
-                    self.send_header('Content-Type', 'text/event-stream')
+                    self.send_header('Content-Type', content_type)
                     self.end_headers()
+                    if raw is not None:
+                        self.wfile.write(raw)
+                        return
                     for event in events:
                         self.wfile.write(('data: ' + json.dumps(event) + '\n\n').encode())
                         self.wfile.flush()
@@ -82,19 +100,22 @@ def request(flow):
                     requests = [
                         ('https://chatgpt.com/backend-api/conversation', {'messages': [{'author': {'role': 'user'}, 'content': {'parts': ['wirebrain-tls-smoke SQLite']}}]}),
                         ('https://claude.ai/api/organizations/test/chat_conversations/test/completion', {'prompt': 'wirebrain-tls-smoke Docker'}),
+                        ('https://gemini.google.com'+GEMINI_PATH, urlencode({'f.req':json.dumps([None,json.dumps([['wirebrain-tls-smoke Gemini'],['en'],['','']])])}).encode()),
+                        ('https://grok.com/rest/app-chat/conversations/new', {'message':'wirebrain-tls-smoke Grok'}),
+                        ('https://www.meta.ai/api/graphql/', urlencode({'fb_api_req_friendly_name':'useAbraSendMessageMutation','variables':json.dumps({'message':{'sensitive_string_value':'wirebrain-tls-smoke Meta'},'externalConversationId':'meta-tls'})}).encode()),
                     ]
                     for url, body in requests:
-                        request = urllib.request.Request(url, json.dumps(body).encode(), {'Content-Type': 'application/json', 'Cookie': 'private-session=not-saved'})
+                        request = urllib.request.Request(url, body if isinstance(body,bytes) else json.dumps(body).encode(), {'Content-Type': 'application/x-www-form-urlencoded' if isinstance(body,bytes) else 'application/json', 'Cookie': 'private-session=not-saved'})
                         with opener.open(request, timeout=10) as response:
-                            self.assertIn(b'data: ', response.read())
+                            self.assertTrue(response.read())
                     store = Store(home)
                     deadline = time.monotonic() + 5
                     while time.monotonic() < deadline:
                         rows = store.list('wirebrain-tls-smoke')
-                        if len(rows) == 2 and all(r['status'] == 'complete' for r in rows): break
+                        if len(rows) == 5 and all(r['status'] == 'complete' for r in rows): break
                         time.sleep(.05)
-                    self.assertEqual({r['provider'] for r in rows}, {'chatgpt', 'claude'})
-                    self.assertEqual({r['response'] for r in rows}, {'SQLite uses a local file.', 'Docker uses service names.'})
+                    self.assertEqual({r['provider'] for r in rows}, {'chatgpt', 'claude','gemini','grok','meta'})
+                    self.assertEqual({r['response'] for r in rows}, {'SQLite uses a local file.', 'Docker uses service names.', 'Gemini uses snapshots.', 'Grok uses JSON lines.', 'Meta uses GraphQL snapshots.'})
                     self.assertTrue(all(r['status'] == 'complete' for r in rows))
                     self.assertNotIn('private-session', store.export())
                 finally:

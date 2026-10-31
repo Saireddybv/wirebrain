@@ -1,0 +1,1 @@
+Find captured conversations across AI apps, newest first. Filter by app, collection, local date range, a literal text phrase, or lookback_minutes (60 for the last hour). Returns exchange_id anchors, titles, counts within the filter, original chat links, and a next_cursor for pagination. Use read_conversation to retrieve the dialogue; only captured data is available.

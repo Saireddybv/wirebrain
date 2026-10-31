@@ -24,6 +24,19 @@ class IntelligenceTests(unittest.TestCase):
             return {'embeddings': [[1.,0.] if any(w in text.lower() for w in ('clients','customers','referral')) else [0.,1.] for text in payload['input']]}
         return {'message':{'content':'You explored referrals [1].'}}
 
+    def test_overview_reports_free_disk_space_and_handles_unavailable_disk(self):
+        from collections import namedtuple
+        usage = namedtuple('usage', 'total used free')(10000000, 4000000, 6000000)
+        with patch('wirebrain.intelligence.shutil.disk_usage', return_value=usage) as disk:
+            result = overview(self.store)
+            self.assertEqual(result['free_bytes'], 6000000)
+            self.assertGreater(result['bytes'], 0)
+            disk.assert_called_once_with(self.store.home)
+        with patch('wirebrain.intelligence.shutil.disk_usage', side_effect=OSError('unavailable')):
+            result = overview(self.store)
+            self.assertIsNone(result['free_bytes'])
+            self.assertEqual(result['conversations'], 2)
+
     @patch('wirebrain.intelligence.local_request')
     def test_meaning_without_keyword_and_index_invalidation(self,request):
         request.side_effect=self.fake

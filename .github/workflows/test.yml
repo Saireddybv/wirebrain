@@ -33,6 +33,10 @@ jobs:
       - name: Check public site metadata and links
         if: matrix.os == 'ubuntu-latest' && matrix.python == '3.11'
         run: python scripts/check_site.py
+      - run: node --check wirebrain/static/personal-memory.js
+      - run: node --check wirebrain/static/reflect.js
+      - run: node --check wirebrain/static/conversation-tools.js
+      - run: node --check wirebrain/static/mcp-connections.js
   https-capture:
     timeout-minutes: 20
     runs-on: windows-latest

@@ -51,7 +51,7 @@ class StoreTests(unittest.TestCase):
         init = dispatch(self.store, {'id': 1, 'method': 'initialize'})
         self.assertEqual(init['result']['protocolVersion'], '2025-06-18')
         self.assertIsNone(dispatch(self.store, {'method': 'notifications/initialized'}))
-        self.assertEqual({t['name'] for t in dispatch(self.store, {'id': 2, 'method': 'tools/list'})['result']['tools']}, {'search_memory','recent_memory','read_memory','context_handoff'})
+        self.assertEqual({t['name'] for t in dispatch(self.store, {'id': 2, 'method': 'tools/list'})['result']['tools']}, {'search_memory','recent_memory','read_memory','context_handoff','search_personal_memory','list_conversations','read_conversation','conversation_handoff'})
         self.assertTrue(dispatch(self.store, {'id': 3, 'method': 'tools/call', 'params': {'name': 'bad'}})['result']['isError'])
 
     def test_mcp_process_stdout_is_json_only(self):

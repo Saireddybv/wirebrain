@@ -66,3 +66,31 @@ The complete capture-enabled suite passed 77 tests, including real local HTTPS i
 One Windows rejection-path test exposed a connection-close race with unread POST bytes. Rejected bodies are now discarded within bounded size/time limits before the denial response, without parsing or acting on them. The regression suite passed after the fix.
 
 Browser write tests used an isolated sample diary on a separate port; no sample records were inserted into the real diary. Screenshots and generated reports remain in ignored local storage. The Mac/Safari and real writing-model boundaries stated above still apply. GitHub Actions are configured to syntax-check both frontend scripts.
+
+
+## Additional website adapters — 2026-10-31
+
+The capture-enabled suite passes **104 tests**, including the existing real local HTTPS interception test expanded to five HTTP website formats. Both frontend scripts pass Node syntax checks.
+
+Live Chrome verification on this PC confirmed:
+
+- Meta AI: submitted prompt and complete answer through DGW binary WebSocket frames, with the real conversation UUID.
+- Grok: submitted user item inside `response.create`, message-gateway text chunks, correct chat ID, and matching history repair. Empty `output_text.done` does not erase streamed text.
+- Gemini: submitted prompt through the newer dedicated WebChannel host, full protobuf answer snapshot and terminal marker, stable reply-ID matching, and correct source chat link. Frame counters are not used as turn IDs.
+
+Protocol fixtures cover fragmentation, malformed inputs, response byte preservation, privacy of diagnostics, distinct chat/channel isolation, and unsupported/partial outcomes. Only supported answer fields are extracted; reasoning and tool payloads are excluded. No provider credentials are copied into fixtures or documentation.
+
+These checks verify the observed Chrome website sessions. Physical macOS/Safari capture, native Gemini/Grok/Meta apps, embedded AI inside social or messaging apps, voice, and image/file contents were not verified by this change. New adapters remain experimental because private website protocols can change. See [capture coverage](CAPTURE-COVERAGE.md).
+
+
+## Memory, MCP, and public documentation — 2026-10-31
+
+The integrated capture-enabled suite passes **163 tests** in the publication worktree. Coverage now includes reusable-memory extraction and forgetting, source invalidation, per-app memory rollups, Reflect macros/study guides, prompt resources, conversation discovery, paged MCP reads, HTTP host/origin rejection, OAuth PKCE, token audience/expiry/rotation, approval and revocation, and collection isolation.
+
+A real local Claude Desktop connection loaded the eight stdio tools, called conversation discovery and reading on an isolated synthetic collection, and returned a check phrase that was absent from the submitted prompt. The temporary synthetic source was removed after verification. The local diary and recorder remained healthy. Screenshots of the user's app and conversations stay in ignored local storage and are not public assets.
+
+The light theme was inspected in a Chromium browser on Diary, Memory, Reflect, and Tools. Computed text/background contrast checks found no failures in the inspected views, and phone/tablet/desktop layouts showed no horizontal page overflow. Dark appearance was switched on and back to light to check that it remained available. This is not a complete accessibility or real-device Safari audit.
+
+The public site uses system fonts, neutral surfaces, readable text, blue actions and a fictional HTML/CSS product illustration. It retains its canonical URL, sitemap, social metadata and SoftwareApplication JSON-LD. `scripts/check_site.py` validates those resources and links. No real diary data, local certificates, account identifiers or tokens are included in the public illustration.
+
+Public HTTPS OAuth against live ChatGPT/Claude web clients is not yet verified: an HTTPS tunnel/domain has not been configured. Actual macOS/Safari capture is still pending. These limitations remain stated in the README and public site.

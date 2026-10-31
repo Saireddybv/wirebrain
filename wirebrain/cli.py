@@ -46,6 +46,9 @@ def main():
     commands.add_parser("demo", help="Add labeled sample data (makes no AI requests)")
     mcp = commands.add_parser("mcp", help="Run the read-only MCP stdio server")
     mcp.add_argument('--project',default='',help='Restrict every memory tool to this collection')
+    http_mcp = commands.add_parser('mcp-http',help='Start diary with authenticated MCP HTTP; HTTPS tunnel is configured separately')
+    http_mcp.add_argument('--port',type=int,default=3334)
+    http_mcp.add_argument('--public-url',default='',help='Public HTTPS origin of a reverse proxy or tunnel, without a path')
     reports = commands.add_parser('report',help='Export a source-linked personal workflow as Markdown')
     reports.add_argument('--kind',choices=['weekly','standup','study','timeline','research','handoff'],default='weekly')
     reports.add_argument('--from',dest='date_from')
@@ -102,6 +105,13 @@ def main():
         elif args.command == "mcp":
             from .mcp import run
             run(store,args.project)
+        elif args.command == 'mcp-http':
+            from .mcp_http import configuration
+            from .mcp_access import Access
+            from .gateway import serve
+            Access(store.home).config(configuration(args.port,args.public_url))
+            config['enable_api_gateway']=False
+            serve(store,config)
         elif args.command == 'report':
             from .workflows import report
             result = report(store,vars(args))

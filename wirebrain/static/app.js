@@ -239,3 +239,17 @@ function updateWorkflowCollections(projects){
   select.value=chosen;
   if(chosen&&!projects.some(p=>p.name===chosen)&&typeof workflowInvalidate==='function')workflowInvalidate();
 }
+
+// Keep dataset downloads local and separate from restorable diary backups.
+document.querySelectorAll('.export-open').forEach(link=>link.addEventListener('click',event=>{
+  event.preventDefault();setMenu(false);$('#export-dialog').showModal();
+}));
+$('#close-export').onclick=()=>$('#export-dialog').close();
+function updateDatasetExport(){
+  const params=new URLSearchParams();
+  if($('#export-provider').value)params.set('provider',$('#export-provider').value);
+  if($('#export-project').value.trim())params.set('project',$('#export-project').value.trim());
+  $('#export-jsonl').href='/api/export/messages?'+params.toString();
+}
+$('#export-provider').onchange=updateDatasetExport;
+$('#export-project').oninput=updateDatasetExport;

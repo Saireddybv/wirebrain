@@ -176,6 +176,18 @@ def handler_factory(store, config, dashboard=False, upstreams=None):
                 return self.reply({"body": store.reflection(day)})
             if path.path == "/api/export":
                 return self.reply(store.export(), mime="application/octet-stream")
+            if path.path == '/api/export/messages':
+                from .dataset_export import jsonl
+                params = parse_qs(path.query)
+                self.send_response(200)
+                self.send_header('Content-Type','application/x-ndjson; charset=utf-8')
+                self.send_header('Content-Disposition','attachment; filename="wirebrain-conversations.jsonl"')
+                self.send_header('Cache-Control','no-store')
+                self.send_header('X-Content-Type-Options','nosniff')
+                self.end_headers()
+                for line in jsonl(store, params.get('provider',[''])[0], params.get('project',[''])[0]):
+                    self.wfile.write(line)
+                return
             if path.path == '/api/diary/export':
                 from .diary import export_diary
                 return self.reply(json.dumps(export_diary(store),ensure_ascii=False),mime='application/octet-stream')

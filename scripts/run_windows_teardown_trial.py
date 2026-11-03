@@ -4,6 +4,7 @@ Uses a fresh trial directory per run. Stream trials target Chrome on a disposabl
 Windows prompts for redirector/driver permissions. Logs and snapshots stay local.
 """
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -17,6 +18,22 @@ import uuid
 
 from wirebrain import capture
 from wirebrain.store import Store
+
+
+def hosted_fixture_trust(home):
+    """Provision one disposable VM fixture without opening an interactive user-root dialog."""
+    if not (os.environ.get("GITHUB_ACTIONS") == "true" and
+            os.environ.get("RUNNER_ENVIRONMENT") == "github-hosted"):
+        return None
+    from mitmproxy.certs import CertStore
+    directory = home/"certificates"
+    CertStore.from_store(directory, "mitmproxy", 2048)
+    import ssl
+    der = ssl.PEM_cert_to_DER_cert((directory/"mitmproxy-ca-cert.pem").read_text())
+    thumb = hashlib.sha1(der).hexdigest()
+    subprocess.run(["certutil","-addstore","Root",str(directory/"mitmproxy-ca-cert.cer")],
+                   check=True, stdout=subprocess.DEVNULL, timeout=30)
+    return thumb
 
 
 def until(predicate, timeout=120):
@@ -53,8 +70,10 @@ def cycle(root, scenario):
     shutil.copy2(Path(os.environ["SystemRoot"])/"System32"/"curl.exe", probe)
     home = root/"diary"
     store = Store(home)
+    thumb = hosted_fixture_trust(home)
     with (root/"capture.log").open("wb") as log:
-        controller = subprocess.Popen([sys.executable, __file__, "--worker", str(root), "chrome.exe" if stream else probe.name],
+        controller = subprocess.Popen([sys.executable, __file__, "--worker", str(root), "chrome.exe" if stream else probe.name,
+                                       "provisioned" if thumb else "interactive"],
                                       stdout=log, stderr=log)
         try:
             def ready():
@@ -99,10 +118,14 @@ def cycle(root, scenario):
                            stdout=subprocess.DEVNULL, check=True)
         finally:
             store.capture_stop(True)
-            controller.wait(timeout=140)
-            subprocess.run([sys.executable, "-m", "wirebrain", "--home", str(home),
-                            "capture-reset", "--remove-ca"], check=True)
-            snapshot(root/"removed.json", base)
+            try:
+                controller.wait(timeout=140)
+                reset = [sys.executable, "-m", "wirebrain", "--home", str(home),"capture-reset"]
+                subprocess.run(reset if thumb else reset + ["--remove-ca"], check=True)
+            finally:
+                if thumb:
+                    subprocess.run(["certutil","-delstore","Root",thumb],check=True, timeout=30)
+                snapshot(root/"removed.json", base)
 
 
 if __name__ == "__main__":
@@ -115,7 +138,7 @@ if __name__ == "__main__":
             cmd = capture.command
             capture.command = lambda *a, **kw: cmd(*a, **kw) + ["--set",
                 "ssl_verify_upstream_trusted_ca=" + str(root/"diary"/"certificates"/"mitmproxy-ca-cert.pem")]
-        capture.run(root/"diary", install_ca=True, local_capture=True)
+        capture.run(root/"diary", install_ca=sys.argv[4]=="interactive", local_capture=True)
     else:
         parser=argparse.ArgumentParser(description=__doc__)
         parser.add_argument("directory",type=Path)

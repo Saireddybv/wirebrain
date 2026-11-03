@@ -25,3 +25,4 @@ jobs:
         shell: pwsh
         run: |
           Get-ChildItem "$env:RUNNER_TEMP/wirebrain-gate" -Filter stream-proof.json -Recurse | ForEach-Object { Get-Content $_.FullName }
+          Get-ChildItem "$env:RUNNER_TEMP/wirebrain-gate" -Filter '*.log' -Recurse | Where-Object Name -in 'capture.log','driver-lifecycle.log' | ForEach-Object { Get-Content $_.FullName -Tail 20 }

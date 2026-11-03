@@ -19,7 +19,7 @@ def details(output):
     return dict(line.split(': ',1) for line in output.splitlines() if ': ' in line)
 
 
-def set_proxy(home, port):
+def set_proxy(home, port, session=None):
     backup = Path(home)/'proxy-backup.json'
     if backup.exists(): raise ValueError('Run wirebrain capture-reset before starting another recorder')
     services = [s for s in network('-listallnetworkservices').splitlines()[1:] if s and not s.startswith('*')]
@@ -33,7 +33,8 @@ def set_proxy(home, port):
         if any(p.get('Authenticated Proxy Enabled') in ('1','Yes','On') for p in (web,secure)) or pac.get('Enabled') == 'Yes' or discovery.get('Auto Proxy Discovery') == 'On':
             raise ValueError('This network uses an authenticated proxy or automatic proxy script. Automatic capture setup cannot safely replace it.')
         old.append({'service':service,'web':web,'secure':secure})
-    backup.write_text(json.dumps({'platform':'Darwin','services':old}),encoding='utf-8')
+    backup.write_text(json.dumps({'platform':'Darwin','services':old,
+                                 '_session':session,'_capture_server':str(port)}),encoding='utf-8')
     try:
         for item in old:
             for kind in ('web','secureweb'):
@@ -44,16 +45,21 @@ def set_proxy(home, port):
         raise
 
 
-def reset_proxy(home):
+def reset_proxy(home, expected_session=None):
     backup = Path(home)/'proxy-backup.json'
     if not backup.exists(): return
     state = json.loads(backup.read_text(encoding='utf-8'))
+    if expected_session is not None and state.get('_session') != expected_session: return
     if state.get('platform') != 'Darwin': raise ValueError('This proxy backup belongs to another operating system')
     errors = []
     for item in state['services']:
         for kind,key in (('web','web'),('secureweb','secure')):
             old = item[key]
             try:
+                if expected_session is not None:
+                    current = details(network('-get'+kind+'proxy',item['service']))
+                    if current.get('Enabled') != 'Yes' or current.get('Server') != '127.0.0.1' or current.get('Port') != state.get('_capture_server'):
+                        continue  # Preserve settings changed outside Wirebrain.
                 if old.get('Server') and old.get('Port','0') != '0':
                     network('-set'+kind+'proxy',item['service'],old['Server'],old['Port'])
                 elif old.get('Enabled') == 'Yes':

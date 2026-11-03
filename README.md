@@ -41,6 +41,17 @@ Reflections are grounded in captured evidence. A repeated question is not a prof
 
 ## Quick start
 
+### Windows tester download
+
+1. Sign in to GitHub and choose **Download Windows tester** on the [Wirebrain website](https://saireddybv.github.io/wirebrain/#setup), or open the [Windows installer builds](https://github.com/Saireddybv/wirebrain/actions/workflows/desktop-shell.yml?query=is%3Asuccess). Choose a successful recent build. Under **Artifacts**, download **Wirebrain-Windows-x64**.
+2. Extract the ZIP and open **Wirebrain-Setup-x64.exe**. The setup wizard installs the app for your Windows user. Python is included. This experimental installer is unsigned and Windows may show an unknown-publisher warning.
+3. Open **Wirebrain** from Start. Choose **Start recording** in the diary and confirm the Windows permissions on first use.
+4. Send a message in ChatGPT. Open the diary to see the saved exchange. Choose **Stop recording** in the diary or the Windows tray whenever you want to pause.
+
+The ZIP includes a SHA-256 checksum and is available for 30 days after its build. The tester targets Windows x64. Claude recording can be intermittent. See the [desktop guide](desktop/README.md) for coverage and uninstall details.
+
+### Run from source
+
 **Portable datasets:** Open **Download & export** (the down arrow) to download conversational JSONL. Each line is a `{"messages":[{"role":"user","content":"…"},{"role":"assistant","content":"…"}]}` record. Filter by app or collection. Completed captured text is included; demos, partial replies and derived memories are excluded. Known branches become separate paths; missing parent IDs use recorded order. System prompts and missing history are never invented. JSONL is for reuse and training preparation, while **Full diary backup** remains the restorable JSON format. Review personal information before sharing; fine-tuning usually trains assistant responses, so this alone does not create a digital twin of the user.
 
 Install **Python 3.11 or newer**, then run:

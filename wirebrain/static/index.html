@@ -24,6 +24,22 @@
 <main>
   <header class="topbar"><button id="menu-toggle" class="glass-icon" aria-label="Open navigation" aria-controls="diary-navigation" aria-expanded="false"><span class="menu-lines" aria-hidden="true"></span></button><div class="diary-heading"><span id="breadcrumb">My diary</span><section id="library-overview" class="library-overview" aria-label="Your memory library"></section></div><label class="global-search"><span>⌕</span><input id="search" placeholder="Search your memories" aria-label="Search all memories"><kbd>/</kbd></label><button id="recording-chip" class="recording-chip" aria-label="Open recording controls"><span id="chip-dot"></span><span id="chip-label">Recording</span></button><button id="quick-note" class="glass-icon" aria-label="Write a note">＋</button><a class="export-link glass-icon export-open" href="#export" aria-label="Download and export">↓</a></header>
   <div class="page-content">
+    <section id="desktop-welcome" hidden aria-labelledby="welcome-title">
+      <div class="welcome-copy">
+        <span class="welcome-kicker"><i aria-hidden="true"></i> WIREBRAIN DESKTOP</span>
+        <h2 id="welcome-title">Your conversation diary</h2>
+        <p id="welcome-message">Turn on recording, then chat in an AI app you already use. Your prompts and replies will appear here.</p>
+        <button id="welcome-record" type="button">Start recording</button>
+        <small>Stored on this computer</small>
+      </div>
+      <svg class="welcome-book" aria-hidden="true" viewBox="0 0 260 210" fill="none">
+        <circle cx="176" cy="60" r="33" fill="var(--folio-sun)"/>
+        <g stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path id="folio-leaf" d="M31 75 Q77 61 127 102 Q163 65 225 64 L227 137 Q170 139 128 177 Q87 143 34 149 Z"/>
+          <path d="M31 84 Q78 71 127 112 Q165 75 225 74 M32 94 Q80 82 127 122 Q166 85 225 84 M32 104 Q83 92 128 132 Q168 95 226 94 M33 114 Q84 102 128 142 Q169 105 226 104 M33 124 Q85 112 128 152 Q170 115 226 114 M34 134 Q86 122 128 162 Q171 125 226 124 M127 102 L128 177"/>
+        </g>
+      </svg>
+    </section>
     <div class="page-heading"><h1 id="title">Your conversations</h1></div>
     <div class="diary-layout">
       <div class="main-column">

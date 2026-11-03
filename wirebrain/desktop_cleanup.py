@@ -1,19 +1,21 @@
 """NSIS pre-uninstall: stop capture, remove our user root, retain the diary."""
 import os
+import hashlib
 from pathlib import Path
 import ssl
+import subprocess
 import sys
 import time
 import winreg
 
-from .capture import remove_ca
+from .desktop_trust import forget
 from .driver_guard import recover_orphan
 from .store import Store
 
 
 def main():
     home = Path.home()/".wirebrain"
-    if (home/"memory.sqlite3").exists():
+    if (home/"desktop-enrollment.json").exists() and (home/"memory.sqlite3").exists():
         store = Store(home)
         store.capture_stop(True)
         deadline = time.monotonic()+120
@@ -21,17 +23,10 @@ def main():
             if time.monotonic() > deadline:
                 raise RuntimeError("Recorder did not pause")
             time.sleep(.25)
-    recover_orphan()
-    pem = home/"certificates/mitmproxy-ca-cert.pem"
-    if pem.is_file():
-        der = ssl.PEM_cert_to_DER_cert(pem.read_text(encoding="ascii"))
-        def trusted():
-            return any(entry[0] == der for entry in ssl.enum_certificates("ROOT"))
-        if trusted():
-            remove_ca(home)
-        if trusted():
-            raise RuntimeError("Capture root remains trusted")
-    (home/"local-capture-authorized").unlink(missing_ok=True)
+        recover_orphan()
+    forget(home, lambda: [e[0] for e in ssl.enum_certificates("ROOT")],
+           lambda der: subprocess.run(["certutil","-user","-delstore","Root",hashlib.sha1(der).hexdigest()],
+                                      check=True,timeout=60))
     # Remove only a startup entry pointing at this installation.
     exe = Path(sys.executable).resolve().parents[1]/"wirebrain-desktop.exe"
     try:

@@ -39,6 +39,7 @@ class Recorder:
             self.store.capture_state({"running":False,"starting":True,"heartbeat":time.time()})
             with (self.store.home/"capture-runtime.log").open("ab") as log:
                 self.worker = subprocess.Popen(args,stdin=subprocess.DEVNULL,stdout=log,
+                    env={**os.environ,"WIREBRAIN_DESKTOP_ENROLL":"1"},
                     stderr=log,creationflags=subprocess.CREATE_NO_WINDOW)
             self.cancel = threading.Event()
             worker, cancel = self.worker, self.cancel
@@ -59,7 +60,8 @@ class Recorder:
             self.closed |= closing
             if self.cancel:
                 self.cancel.set()
-            self.store.capture_stop(True)
+            if not closing or (self.worker and self.worker.poll() is None):
+                self.store.capture_stop(True)
 
 
 def main():

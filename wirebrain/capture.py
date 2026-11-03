@@ -204,6 +204,8 @@ def start_background(home):
 def prepare_process_trust(home, install_ca):
     from mitmproxy.certs import CertStore
     directory = Path(home) / "certificates"
+    desktop = os.environ.get("WIREBRAIN_DESKTOP_ENROLL") == "1" and install_ca
+    existed = {p.name for p in directory.glob("mitmproxy-*")} if desktop else set()
     if install_ca:
         CertStore.from_store(directory, "mitmproxy", 2048)
     cert = directory / "mitmproxy-ca-cert.pem"
@@ -214,6 +216,9 @@ def prepare_process_trust(home, install_ca):
         return False
     if not install_ca:
         raise ValueError("This recorder's CA is not trusted. Complete Local setup first.")
+    if desktop:
+        from .desktop_trust import remember
+        remember(Path(home), der, existed)
     subprocess.run(["certutil", "-user", "-addstore", "Root", str(cert.resolve())],
                    check=True, capture_output=True)
     return True

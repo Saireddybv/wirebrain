@@ -1,7 +1,8 @@
 name: Windows desktop prototype
 on:
   push:
-    branches: ['codex/windows-desktop-shell']
+    branches: [main, 'codex/windows-desktop-shell', 'codex/windows-download']
+    paths: ['desktop/**', 'wirebrain/**', 'pyproject.toml', '.github/workflows/desktop-shell.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -54,3 +55,20 @@ jobs:
           $removed = Start-Process "$dest/uninstall.exe" -ArgumentList "/S _?=$dest" -Wait -PassThru
           if ($removed.ExitCode -ne 0) { throw "Uninstall failed" }
           if ((Test-Path "$dest/runtime/python.exe") -or !(Test-Path "$env:USERPROFILE/.wirebrain/memory.sqlite3")) { throw "Incorrect uninstall result" }
+      - name: Prepare Windows tester download
+        shell: pwsh
+        run: |
+          $bundle = @(Get-ChildItem desktop/src-tauri/target/release/bundle/nsis/*.exe)
+          if ($bundle.Count -ne 1) { throw "Expected one tested installer" }
+          $dir = New-Item -Type Directory "$env:RUNNER_TEMP/windows-download"
+          $file = Join-Path $dir.FullName 'Wirebrain-Setup-x64.exe'
+          Copy-Item -LiteralPath $bundle[0].FullName -Destination $file
+          $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $file).Hash.ToLowerInvariant()
+          "$hash  Wirebrain-Setup-x64.exe" | Set-Content -Encoding ascii "$dir/SHA256SUMS.txt"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: Wirebrain-Windows-x64
+          path: ${{ runner.temp }}/windows-download/
+          retention-days: 30
+          if-no-files-found: error
+          compression-level: 0

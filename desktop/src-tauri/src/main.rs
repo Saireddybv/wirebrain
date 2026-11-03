@@ -4,6 +4,9 @@ use std::{io::{BufRead, BufReader, Write}, os::windows::process::CommandExt,
 use tauri::{menu::{CheckMenuItem, Menu, MenuItem}, tray::TrayIconBuilder,
     Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_autostart::ManagerExt;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+static ASKING_TO_RECORD: AtomicBool = AtomicBool::new(false);
 
 struct Diary(Mutex<Child>);
 fn show(app: &tauri::AppHandle) {
@@ -22,6 +25,17 @@ fn control(app: &tauri::AppHandle, action: &str) {
     if child.stdin.as_mut().is_none_or(|p| writeln!(p, "{action}").is_err()) {
         notify("The diary service stopped. Quit and reopen Wirebrain.");
     }
+}
+fn ask_to_record(app: &tauri::AppHandle) {
+    if ASKING_TO_RECORD.swap(true, Ordering::AcqRel) { return; }
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let consent = rfd::MessageDialog::new().set_title("Start recording?")
+            .set_description("Wirebrain will save supported AI prompts and replies on this PC. Windows may ask you to trust a local certificate and allow the capture driver. You can stop recording from the diary or the tray.")
+            .set_buttons(rfd::MessageButtons::OkCancel).show();
+        if consent == rfd::MessageDialogResult::Ok { control(&app,"record"); }
+        ASKING_TO_RECORD.store(false, Ordering::Release);
+    });
 }
 fn main() {
     let result = tauri::Builder::default()
@@ -45,16 +59,25 @@ fn main() {
             app.manage(Diary(Mutex::new(child)));
             let url: tauri::Url = format!("http://127.0.0.1:{port}/").parse()?;
             let origin = url.origin();
+            let handle = app.handle().clone();
             let window = WebviewWindowBuilder::new(app, "diary", WebviewUrl::External(url))
                 .title("Wirebrain").inner_size(1080.0,760.0)
-                .on_navigation(move |url| url.origin() == origin).build()?;
+                .initialization_script("window.__WIREBRAIN_DESKTOP__ = true;")
+                .on_navigation(move |url| {
+                    if url.origin() != origin { return false; }
+                    if url.path() == "/desktop/start-recording" {
+                        ask_to_record(&handle);
+                        return false;
+                    }
+                    true
+                }).build()?;
             let copy = window.clone();
             window.on_window_event(move |e| if let tauri::WindowEvent::CloseRequested{api,..} = e {
                 api.prevent_close(); let _ = copy.hide();
             });
             let open = MenuItem::with_id(app, "open","Open diary",true,None::<&str>)?;
-            let record = MenuItem::with_id(app,"record","Turn on recording…",true,None::<&str>)?;
-            let pause = MenuItem::with_id(app,"pause","Pause recording",true,None::<&str>)?;
+            let record = MenuItem::with_id(app,"record","Start recording…",true,None::<&str>)?;
+            let pause = MenuItem::with_id(app,"pause","Stop recording",true,None::<&str>)?;
             let login = CheckMenuItem::with_id(app,"login","Open at sign-in",true,
                 app.autolaunch().is_enabled()?,None::<&str>)?;
             let quit = MenuItem::with_id(app,"quit","Quit Wirebrain",true,None::<&str>)?;
@@ -64,12 +87,7 @@ fn main() {
                 .on_menu_event(move |app,event| match event.id.as_ref() {
                     "open" => show(app),
                     "pause" => control(app,"pause"),
-                    "record" => {
-                        let consent = rfd::MessageDialog::new().set_title("Turn on recording?")
-                            .set_description("Wirebrain can read supported AI conversations in Chrome and desktop apps and save them on this PC. Windows may ask you to trust a local certificate and allow its capture driver. Your manual proxy will not change. Claude Desktop recording is still being tested with this capture mode.")
-                            .set_buttons(rfd::MessageButtons::OkCancel).show();
-                        if consent == rfd::MessageDialogResult::Ok { control(app,"record"); }
-                    },
+                    "record" => ask_to_record(app),
                     "login" => {
                         let manager = app.autolaunch();
                         let result = manager.is_enabled().and_then(|on| if on {manager.disable()} else {manager.enable()});

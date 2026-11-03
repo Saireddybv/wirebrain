@@ -90,19 +90,21 @@ function renderReview(){
   appendConversationGrid(target,reviewRows);
   if(diary.note&&!app&&!project){const card=node('article','review-card');card.append(node('h3','','In your own words'),node('p','',diary.note));target.append(card);}
 }
+const desktopDiary = window.__WIREBRAIN_DESKTOP__ === true;
 function setRecording(capture){
-  const running=Boolean(capture.running),starting=!capture.error&&startingAt&&Date.now()-startingAt<30000&&!running;
+  const running=Boolean(capture.running),starting=!running&&!capture.error&&((startingAt&&Date.now()-startingAt<30000)||(capture.starting&&Date.now()/1000-capture.heartbeat<120));
   if(capture.error){$('#recording-error').textContent=capture.error;$('#recording-error').hidden=false;}
   if(running||capture.error)startingAt=0;
-  $('#chip-dot').classList.toggle('off',!running);$('#chip-label').textContent=running?'Recording':starting?'Starting':'Paused';
+  $('#chip-dot').classList.toggle('off',!running);$('#chip-label').textContent=running?'Recording':starting?'Starting':desktopDiary?'Start recording':'Paused';
   $('#recording-chip').setAttribute('aria-label',`Recording ${running?'is on':starting?'is starting':'is paused'}. Open recording controls`);
   $('#recording-dot').classList.toggle('off',!running);$('#recording-title').textContent=running?'Your diary is remembering':starting?'Getting ready to remember':'Recording is paused';
   $('#capture-status').textContent=running?(capture.local_capture?'Process capture is active for Chrome, ChatGPT and Claude. Windows proxy settings are unchanged.':capture.system_proxy?'Your recorder is connected. Supported text conversations are saved on this computer.':'The recorder is open, but your apps are not connected to it yet.'):starting?'Your recorder is starting. This can take a few moments.':'Your memories are still here. Resume when you want to capture new conversations.';
   const setup=!running&&!starting&&capture.setup_needed;
   const stopping=running&&capture.stopping;
   if(stopping){$('#recording-title').textContent='Pausing the recorder';$('#capture-status').textContent='Your recorder is stopping. You can resume in a moment.';}
-  if(setup){$('#recording-title').textContent='Recording needs one-time setup';$('#capture-status').textContent='Your memories are still here. To record new conversations, open Local setup for the recording instructions.';}
-  $('#recording-toggle').textContent=stopping?'Pausing…':running?'Pause recording':starting?'Starting…':setup?'Setup needed':'Resume recording';$('#recording-toggle').disabled=Boolean(starting||setup||stopping);$('#recording-toggle').dataset.running=String(running);$('#recording-toggle').dataset.stopping=String(Boolean(stopping));
+  if(setup&&desktopDiary){$('#capture-status').textContent='Start recording to save supported AI conversations on this PC.';}
+  if(setup&&!desktopDiary){$('#recording-title').textContent='Recording needs one-time setup';$('#capture-status').textContent='Your memories are still here. To record new conversations, open Local setup for the recording instructions.';}
+  $('#recording-toggle').textContent=stopping?'Pausing…':running?(desktopDiary?'Stop recording':'Pause recording'):starting?'Starting…':desktopDiary?'Start recording':setup?'Setup needed':'Resume recording';$('#recording-toggle').disabled=Boolean(starting||(setup&&!desktopDiary)||stopping);$('#recording-toggle').dataset.running=String(running);$('#recording-toggle').dataset.stopping=String(Boolean(stopping));
 }
 async function refresh(){
   if(busy){pending=true;return;}busy=true;const version=revision,snapshot={day:selectedDay,view,query};
@@ -139,7 +141,7 @@ async function openMemory(row){
 }
 $('#day-note').oninput=()=>{noteDirty=true;$('#note-status').textContent='A thought in progress…';};
 $('#save-note').onclick=async()=>{const button=$('#save-note'),day=selectedDay,body=$('#day-note').value;button.disabled=true;$('#note-status').textContent='Saving…';try{await post('/api/diary/note',{day,body});if(selectedDay===day&&$('#day-note').value===body){noteDirty=false;diary.note=body;$('#note-status').textContent='Saved. A little thought, kept safe.';}toast('Your note is saved.');lastRender='';await refresh();}catch(error){showError(error);$('#note-status').textContent='Not saved. Please try again.';}finally{button.disabled=false;}};
-$('#recording-toggle').onclick=async()=>{const button=$('#recording-toggle');button.disabled=true;$('#recording-error').hidden=true;try{if(button.dataset.running==='true'){await post('/api/capture/stop',{});toast('Pausing new recordings. Your memories stay here.');}else{await post('/api/capture/start',{});startingAt=Date.now();setRecording({});toast('Starting your recorder…');}await refresh();}catch(error){startingAt=0;$('#recording-error').textContent=error.message;$('#recording-error').hidden=false;}finally{if(!startingAt&&button.dataset.stopping!=='true')button.disabled=false;}};
+$('#recording-toggle').onclick=async()=>{const button=$('#recording-toggle');button.disabled=true;$('#recording-error').hidden=true;try{if(button.dataset.running==='true'){await post('/api/capture/stop',{});toast('Pausing new recordings. Your memories stay here.');}else if(desktopDiary){window.location.assign('/desktop/start-recording');}else{await post('/api/capture/start',{});startingAt=Date.now();setRecording({});toast('Starting your recorder…');}await refresh();}catch(error){startingAt=0;$('#recording-error').textContent=error.message;$('#recording-error').hidden=false;}finally{if(!startingAt&&button.dataset.stopping!=='true')button.disabled=false;}};
 function openNotes(focus=false){$('#notes-sheet').showModal();if(focus)$('#day-note').focus();}
 $('#quick-note').onclick=()=>openNotes(true);
 $('#recording-chip').onclick=()=>{$('#recording-dialog').showModal();};
@@ -211,7 +213,7 @@ async function loadLocal(){
     const quotedHome="'"+localState.home.replaceAll("'",localState.platform==='Windows'?"''":"'\\''")+"'";
     $('#setup-command').textContent='wirebrain --home '+quotedHome+' capture --install-ca '+(localState.platform==='Windows'?'--local-capture':'--system-proxy');
     $('#setup-command').closest('details').hidden=!!localState.desktop_shell;
-    if(localState.desktop_shell&&!stats.capture?.running)$('#setup-capture-status').textContent='Open the Wirebrain icon in the Windows tray and choose Turn on recording. You can pause here or in the tray.';
+    if(localState.desktop_shell&&!stats.capture?.running)$('#setup-capture-status').textContent='Choose Start recording at the top of the diary. You can stop recording there or in the Windows tray.';
   }catch(error){$('#local-status').textContent=error.message;}
 }
 $('#local-setup').onclick=()=>{setMenu(false);$('#local-dialog').showModal();loadLocal();};

@@ -1,14 +1,13 @@
 """NSIS pre-uninstall: stop capture, remove our user root, retain the diary."""
 import os
-import hashlib
 from pathlib import Path
 import ssl
-import subprocess
 import sys
 import time
 import winreg
 
 from .desktop_trust import forget
+from .windows_certificates import remove_root
 from .driver_guard import recover_orphan
 from .store import Store
 
@@ -24,9 +23,7 @@ def main():
                 raise RuntimeError("Recorder did not pause")
             time.sleep(.25)
         recover_orphan()
-    forget(home, lambda: [e[0] for e in ssl.enum_certificates("ROOT")],
-           lambda der: subprocess.run(["certutil","-user","-delstore","Root",hashlib.sha1(der).hexdigest()],
-                                      check=True,timeout=60))
+    forget(home, lambda: [e[0] for e in ssl.enum_certificates("ROOT")], remove_root)
     # Remove only a startup entry pointing at this installation.
     exe = Path(sys.executable).resolve().parents[1]/"wirebrain-desktop.exe"
     try:

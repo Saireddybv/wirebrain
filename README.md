@@ -11,7 +11,7 @@ Find past answers, reflect on your work, and carry context between assistants.
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](pyproject.toml)
 [![Status: experimental](https://img.shields.io/badge/Status-experimental-orange.svg)](#project-status)
 
-[Website](https://saireddybv.github.io/wirebrain/) · [Get started](#quick-start) · [Connect an assistant](#connect-an-assistant) · [Documentation](#documentation) · [Contribute](CONTRIBUTING.md)
+[Download for Windows x64](https://github.com/Saireddybv/wirebrain/releases/download/v0.1.0-preview.1/Wirebrain-Setup-x64.exe) · [Website](https://saireddybv.github.io/wirebrain/) · [Get started](#quick-start) · [Connect an assistant](#connect-an-assistant) · [Documentation](#documentation) · [Contribute](CONTRIBUTING.md)
 
 </div>
 
@@ -41,14 +41,14 @@ Reflections are grounded in captured evidence. A repeated question is not a prof
 
 ## Quick start
 
-### Windows tester download
+### Windows desktop preview
 
-1. Sign in to GitHub and choose **Download Windows tester** on the [Wirebrain website](https://saireddybv.github.io/wirebrain/#setup), or open the [Windows installer builds](https://github.com/Saireddybv/wirebrain/actions/workflows/desktop-shell.yml?query=is%3Asuccess). Choose a successful recent build. Under **Artifacts**, download **Wirebrain-Windows-x64**.
-2. Extract the ZIP and open **Wirebrain-Setup-x64.exe**. The setup wizard installs the app for your Windows user. Python is included. This experimental installer is unsigned and Windows may show an unknown-publisher warning.
+1. [Download Wirebrain-Setup-x64.exe](https://github.com/Saireddybv/wirebrain/releases/download/v0.1.0-preview.1/Wirebrain-Setup-x64.exe) for Windows x64. No GitHub login is required.
+2. Run the installer. Python is included. This preview is unsigned and Windows may show an unknown-publisher warning.
 3. Open **Wirebrain** from Start. Choose **Start recording** in the diary and confirm the Windows permissions on first use.
 4. Send a message in ChatGPT. Open the diary to see the saved exchange. Choose **Stop recording** in the diary or the Windows tray whenever you want to pause.
 
-The ZIP includes a SHA-256 checksum and is available for 30 days after its build. The tester targets Windows x64. Claude recording can be intermittent. See the [desktop guide](desktop/README.md) for coverage and uninstall details.
+The [release notes and SHA-256 checksum](https://github.com/Saireddybv/wirebrain/releases/tag/v0.1.0-preview.1) are available with the installer. Claude recording can be intermittent. See the [desktop guide](desktop/README.md) for coverage and uninstall details.
 
 ### Run from source
 

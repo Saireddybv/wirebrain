@@ -1,4 +1,3 @@
-import base64
 import gzip
 import json
 import tempfile
@@ -11,16 +10,7 @@ from wirebrain.mitm_addon import WebCapture
 from wirebrain.store import Store
 from wirebrain.webcapture import generation_request
 
-# Request bodies recorded from claude.ai (a short test prompt, no credentials).
-PERFORM_ACTION_BODY = base64.b64decode(
-    'CokBChkKFXNlc3NfN2Q5ZWMzZWI1NzQ5M2FhNBADEiQzOGQ1YjdmYy1lZmNhLTRhMDctODU0ZS0xY2M2OTdmYTVjOGMYAzoYCAEQARgBMAFAAVABsAEBwAEB4AEBiAIBcgVl'
-    'bi1VU3ogPKBVN9/t13a7QKfCPgPzMyMtlcbQskr+wVw2feZVBaiYAQESrQEKJDRkZGMxMWY5LTY5MDctNDg2Mi1hZWVhLWMyODE0ZmMwNGMzMhIkNWIxZTgzZTMtYzQ5MC00'
-    'Yjc2LTljYzUtMWUyNmVmMDIzNDNjGkZUaGlyZCBXaXJlYnJhaW4gdGVzdDogcmVwbHkgd2l0aCBleGFjdGx5IHRoZSB3b3JkcyBwYW5nLXdpcmVicmFpbi05MDQ2Yg1Bc2lh'
-    'L0NhbGN1dHRhagVlbi1VU5ABAQ==')
-STREAM_TIMELINE_BODY = base64.b64decode(
-    'AAAAAGMKJDU1OTNiYjJhLWVjNzctNDZmYy1hZmRiLThmODcxZDU2ZjYzZRIRCg8xNzkzNDQzNTgzNzEwLTAYASIOMAGwAQHAAQHgAQGIAgEqBWVuLVVTMAFCDUFzaWEvQ2Fs'
-    'Y3V0dGE=')
-CONVERSATION = '38d5b7fc-efca-4a07-854e-1cc697fa5c8c'
+CONVERSATION = 'test-conversation'
 NOW_MS = int(time.time() * 1000)
 
 
@@ -41,6 +31,13 @@ def field(number, value):
 
 def envelope(payload, flags=0):
     return bytes([flags]) + len(payload).to_bytes(4, 'big') + payload
+
+
+# Synthetic requests with the same field layout as the Claude RPCs.
+PERFORM_ACTION_BODY = field(1, field(2, CONVERSATION)) + field(2,
+    field(1, 'test-user-message') + field(2, 'test-parent') +
+    field(3, 'Third Wirebrain test: reply with exactly the words pang-wirebrain-9046'))
+STREAM_TIMELINE_BODY = envelope(field(1, 'test-timeline'))
 
 
 def event(stamp, *inner):
@@ -64,33 +61,33 @@ def group_start(message_uuid, group='dgrp_1'):
 
 
 class PromptTests(unittest.TestCase):
-    def test_real_perform_action_body_is_a_prompt(self):
+    def test_perform_action_body_is_a_prompt(self):
         capture = prompt_request(PERFORM_ACTION_BODY)
         self.assertEqual(capture['prompt'], 'Third Wirebrain test: reply with exactly the words pang-wirebrain-9046')
         self.assertEqual(capture['conversation_id'], CONVERSATION)
-        self.assertEqual(capture['message_id'], '4ddc11f9-6907-4862-aeea-c2814fc04c32')
-        self.assertEqual(capture['parent_message_id'], '5b1e83e3-c490-4b76-9cc5-1e26ef02343c')
+        self.assertEqual(capture['message_id'], 'test-user-message')
+        self.assertEqual(capture['parent_message_id'], 'test-parent')
         self.assertTrue(capture['reply_on_stream'])
         routed = generation_request('claude.ai', PERFORM_ACTION, PERFORM_ACTION_BODY)
         self.assertEqual(routed['prompt'], capture['prompt'])
 
     def test_users_own_message_in_the_stream_is_not_the_reply(self):
-        stream = ClaudeTimeline(NOW_MS, '4ddc11f9-6907-4862-aeea-c2814fc04c32')
-        stream.feed(event(NOW_MS, group_start('4ddc11f9-6907-4862-aeea-c2814fc04c32', 'dgrp_human'), block('h1', 'my own prompt', group='dgrp_human')) +
+        stream = ClaudeTimeline(NOW_MS, 'test-user-message')
+        stream.feed(event(NOW_MS, group_start('test-user-message', 'dgrp_human'), block('h1', 'my own prompt', group='dgrp_human')) +
                     event(NOW_MS, group_start('assistant-1'), block('b1', 'real reply')) + envelope(b'{}', 2))
         self.assertEqual((stream.text, stream.response_message_id), ('real reply', 'assistant-1'))
         late = ClaudeTimeline()          # stream opened first; the prompt id arrives when it is bound
-        late.bind(NOW_MS, '4ddc11f9-6907-4862-aeea-c2814fc04c32')
-        late.feed(event(NOW_MS, group_start('4ddc11f9-6907-4862-aeea-c2814fc04c32', 'dgrp_human'), block('h1', 'my own prompt', group='dgrp_human')) + envelope(b'{}', 2))
+        late.bind(NOW_MS, 'test-user-message')
+        late.feed(event(NOW_MS, group_start('test-user-message', 'dgrp_human'), block('h1', 'my own prompt', group='dgrp_human')) + envelope(b'{}', 2))
         self.assertEqual(late.text, '')
 
     def test_actions_without_a_prompt_and_garbage_are_ignored(self):
-        self.assertIsNone(prompt_request(base64.b64decode('CkkSJDM4ZDViN2ZjLWVmY2EtNGEwNy04NTRlLTFjYzY5N2ZhNWM4YxgDOhgIARABGAEwAUABUAGwAQE=')))
+        self.assertIsNone(prompt_request(field(1, field(2, CONVERSATION))))
         self.assertIsNone(prompt_request(b'\xff\xff\xff'))
         self.assertIsNone(prompt_request(b''))
 
     def test_timeline_request_names_its_conversation(self):
-        self.assertEqual(timeline_conversation(STREAM_TIMELINE_BODY), '5593bb2a-ec77-46fc-afdb-8f871d56f63e')
+        self.assertEqual(timeline_conversation(STREAM_TIMELINE_BODY), 'test-timeline')
         self.assertEqual(timeline_conversation(b'junk'), '')
 
 
@@ -126,6 +123,9 @@ class TimelineTests(unittest.TestCase):
         bounded = ClaudeTimeline(NOW_MS)
         bounded.feed(b'\x00' + (3 * 1024 * 1024).to_bytes(4, 'big'))
         self.assertEqual(bounded.status, 'truncated')
+        expanded = ClaudeTimeline(NOW_MS)
+        expanded.feed(envelope(gzip.compress(b'x' * (3 * 1024 * 1024)), 1))
+        self.assertEqual(expanded.status, 'truncated')
 
 
 class AddonTests(unittest.TestCase):

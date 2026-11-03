@@ -5,6 +5,7 @@ protobuf body with an empty reply, and ``StreamTimeline`` streams the reply as
 Connect envelopes. Only the prompt, ids and assistant text blocks are read.
 """
 import gzip
+import io
 import json
 import re
 
@@ -66,6 +67,7 @@ class ClaudeTimeline:
         self.done = False
         self.error = False
         self.truncated = False
+        self.decoded_bytes = 0
         self.conversation_id = ''
         self.response_message_id = ''
         self.own_messages = {message_id} if message_id else set()   # the user's own message, which the stream also carries
@@ -90,8 +92,16 @@ class ClaudeTimeline:
                 self._end(payload)
                 continue
             if flags & 1:
-                try: payload = gzip.decompress(payload)
-                except (OSError, EOFError, ValueError): continue
+                try:
+                    with gzip.GzipFile(fileobj=io.BytesIO(payload)) as compressed:
+                        payload = compressed.read(MAX_TEXT - self.decoded_bytes + 1)
+                except (OSError, EOFError, ValueError):
+                    self.error = True
+                    return
+            self.decoded_bytes += len(payload)
+            if self.decoded_bytes > MAX_TEXT:
+                self.truncated = True
+                return
             self._event(payload)
 
     def bind(self, prompt_ms, message_id=''):

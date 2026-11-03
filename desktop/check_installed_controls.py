@@ -5,7 +5,10 @@ import subprocess
 import sys
 import time
 
-from playwright.sync_api import sync_playwright
+import json
+import urllib.request
+
+from pywinauto import Desktop
 import win32con
 import win32gui
 import win32process
@@ -26,7 +29,7 @@ def answer_dialog(pid, button):
     raise RuntimeError("The installed diary did not open the native recording prompt")
 
 
-def run(pid, debug_port, diary_port, installed_python):
+def run(pid, diary_port, installed_python):
     if os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted":
         raise RuntimeError("Installed capture checks require a disposable hosted runner")
     repo = Path(__file__).resolve().parents[1]
@@ -41,32 +44,39 @@ if not der: raise RuntimeError('Missing fixture trust')
 Path(sys.argv[2]).write_bytes(der)
 """
     der_path = Path(os.environ["RUNNER_TEMP"])/"desktop-fixture.der"
-    with sync_playwright() as driver:
-        browser = driver.chromium.connect_over_cdp(f"http://127.0.0.1:{debug_port}")
-        page = next(page for context in browser.contexts for page in context.pages
-                    if page.url == f"http://127.0.0.1:{diary_port}/")
-        start = page.locator("#welcome-record")
-        start.wait_for()
-        if start.inner_text() != "Start recording":
-            raise RuntimeError("Unexpected first-run state")
-        start.click()
-        answer_dialog(pid, win32con.IDCANCEL)
-        if page.evaluate("fetch('/api/stats').then(r=>r.json()).then(s=>s.capture.running)"):
-            raise RuntimeError("Cancelling started recording")
-        try:
-            subprocess.run([installed_python,"-I","-c",setup,str(repo/"scripts"),str(der_path)],check=True)
-            start.click()
-            answer_dialog(pid, win32con.IDOK)
-            page.wait_for_function("document.querySelector('#welcome-record').textContent === 'Stop recording'",timeout=90000)
-            start.click()
-            page.wait_for_function("document.querySelector('#welcome-record').textContent === 'Start recording'",timeout=90000)
-        finally:
-            page.evaluate("fetch('/api/capture/stop',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})")
-            if der_path.exists():
-                cleanup = "from wirebrain.windows_certificates import remove_root; from pathlib import Path; import sys; remove_root(Path(sys.argv[1]).read_bytes(),'LocalMachine')"
-                subprocess.run([installed_python,"-I","-c",cleanup,str(der_path)],check=True)
-                der_path.unlink()
+    window = Desktop(backend="uia").window(process=pid,title="Wirebrain")
+    def button(name):
+        control = window.child_window(title=name,control_type="Button",found_index=0)
+        control.wait("exists enabled visible",timeout=90)
+        return control.wrapper_object()
+    api = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    base = f"http://127.0.0.1:{diary_port}"
+    def running():
+        with api.open(base+"/api/stats",timeout=5) as response:
+            return json.load(response)["capture"]["running"]
+    button("Start recording").invoke()
+    answer_dialog(pid, win32con.IDCANCEL)
+    if running():
+        raise RuntimeError("Cancelling started recording")
+    try:
+        subprocess.run([installed_python,"-I","-c",setup,str(repo/"scripts"),str(der_path)],check=True)
+        button("Start recording").invoke()
+        answer_dialog(pid, win32con.IDOK)
+        stop = button("Stop recording")
+        if not running():
+            raise RuntimeError("Recorder is not running")
+        stop.invoke()
+        button("Start recording")
+        if running():
+            raise RuntimeError("Recorder did not stop")
+    finally:
+        req=urllib.request.Request(base+"/api/capture/stop",data=b"{}",headers={"Content-Type":"application/json"})
+        with api.open(req,timeout=5): pass
+        if der_path.exists():
+            cleanup = "from wirebrain.windows_certificates import remove_root; from pathlib import Path; import sys; remove_root(Path(sys.argv[1]).read_bytes(),'LocalMachine')"
+            subprocess.run([installed_python,"-I","-c",cleanup,str(der_path)],check=True)
+            der_path.unlink()
 
 
 if __name__ == "__main__":
-    run(int(sys.argv[1]),int(sys.argv[2]),int(sys.argv[3]),sys.argv[4])
+    run(int(sys.argv[1]),int(sys.argv[2]),sys.argv[3])

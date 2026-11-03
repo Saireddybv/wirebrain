@@ -11,6 +11,21 @@ from wirebrain.webcapture import HOSTS, MAX_TEXT, WebStream, generation_request
 from wirebrain.extra_webcapture import stream_for, stream_content_type
 
 
+def provider_host(flow):
+    if os.environ.get("WIREBRAIN_LOCAL_READY"):
+        # In transparent mode request.host can be the upstream IP. Match both
+        # HTTP authority and TLS SNI before recording, without rewriting either.
+        req = flow.request
+        authority = req.authority if req.is_http2 or req.is_http3 else req.headers.get("Host", "")
+        host = (authority or "").lower().removesuffix(":443")
+        sni = (flow.client_conn.sni or "").lower()
+        reason = ("missing_sni" if not sni else "missing_authority" if not host else
+                  "hostname_mismatch" if host != sni else "unsupported_host" if host not in HOSTS else "matched")
+        flow.metadata["wirebrain_gate"] = reason
+        return host if reason == "matched" else ""
+    return flow.request.host.lower()
+
+
 class WebCapture:
     def __init__(self, store=None):
         self.store = store
@@ -20,10 +35,43 @@ class WebCapture:
         if self.store is None:
             self.store = Store(os.environ.get("WIREBRAIN_HOME", str(Path.home() / ".wirebrain")))
 
+    def running(self):
+        marker = os.environ.get("WIREBRAIN_LOCAL_READY")
+        if marker:
+            import sys
+            import threading
+            from mitmproxy import ctx
+            master = ctx.master
+            def wait_for_owner():
+                sys.stdin.buffer.read(1)
+                master.shutdown()
+            threading.Thread(target=wait_for_owner, daemon=True).start()
+            Path(marker).write_text(str(os.getpid()), encoding="ascii")
+
+    def _tls_observation(self, data, event, server_name=None):
+        if os.environ.get("WIREBRAIN_LOCAL_READY"):
+            host = (server_name or data.context.client.sni or "").lower()
+            if host in HOSTS:
+                print(json.dumps({"time":time.time(), "host":host, "stage":"client_tls",
+                                  "outcome":event}), flush=True)
+
+    def tls_clienthello(self, data):
+        self._tls_observation(data, "client_hello", data.client_hello.sni)
+
+    def tls_established_client(self, data):
+        self._tls_observation(data, "established")
+
+    def tls_failed_client(self, data):
+        self._tls_observation(data, "failed")
+
     def request(self, flow):
-        if flow.request.host.lower() in HOSTS:
-            self.store.capture_seen(flow.request.host.lower())
-        if flow.request.host.lower()=='geminiweb-pa.clients6.google.com' and urlsplit(flow.request.path).path=='/v1/processSession':
+        host = provider_host(flow)
+        if host not in HOSTS:
+            self._audit(flow, "dropped")
+            return
+        self._audit(flow, "inspected")
+        self.store.capture_seen(host)
+        if host=='geminiweb-pa.clients6.google.com' and urlsplit(flow.request.path).path=='/v1/processSession':
             from wirebrain.gemini_channel import ChannelFrames
             sid=parse_qs(urlsplit(flow.request.path).query).get('SID',[''])[0]
             state=self.gemini_sessions.get(sid) if sid else None
@@ -34,7 +82,7 @@ class WebCapture:
             flow.request.headers['accept-encoding']='identity'
         # A reopened chat supplies canonical text that can repair a previous
         # partial capture. Do not import uncaptured chats or alternative branches.
-        if flow.request.method == "GET" and flow.request.host.lower() in ("chatgpt.com", "chat.openai.com") and re.fullmatch(r"/backend-api/conversation/[0-9a-fA-F-]{36}", urlsplit(flow.request.path).path):
+        if flow.request.method == "GET" and host in ("chatgpt.com", "chat.openai.com") and re.fullmatch(r"/backend-api/conversation/[0-9a-fA-F-]{36}", urlsplit(flow.request.path).path):
             flow.metadata["wirebrain_history"] = urlsplit(flow.request.path).path.rsplit('/',1)[-1]
             return
         if flow.request.method != "POST":
@@ -42,7 +90,7 @@ class WebCapture:
         body = flow.request.content or b""
         if len(body) > 8 * 1024 * 1024:
             return
-        if flow.request.host.lower()=='geminiweb-pa.clients6.google.com' and urlsplit(flow.request.path).path=='/v1/processSession':
+        if host=='geminiweb-pa.clients6.google.com' and urlsplit(flow.request.path).path=='/v1/processSession':
             from wirebrain.extra_webcapture import form
             from wirebrain.binarycapture import fields
             import base64
@@ -74,8 +122,8 @@ class WebCapture:
                             route='gemini WebChannel request schema '+','.join(sorted(info)) if isinstance(info,dict) else 'gemini WebChannel request schema bounded'
                             db.execute('INSERT INTO capture_routes VALUES (?,?,1) ON CONFLICT(route) DO UPDATE SET keys=excluded.keys,count=count+1',(route,json.dumps(info)))
             except (ValueError,TypeError,IndexError,UnicodeError):pass
-        if flow.request.host.lower() in HOSTS:
-            self.store.capture_route(flow.request.host.lower(), flow.request.method, flow.request.path, body)
+        if host in HOSTS:
+            self.store.capture_route(host, flow.request.method, flow.request.path, body)
             # Protocol diagnostics contain schema names and route structure only,
             # never message values, query strings, cookies, or identifiers.
             pieces = [s if re.fullmatch(r"[a-z][a-z_-]{0,24}", s) else ":id" for s in urlsplit(flow.request.path).path.split('/') if s]
@@ -88,17 +136,20 @@ class WebCapture:
             try: shape = schema(json.loads(body))
             except (ValueError, UnicodeError): shape = "non-json"
             info = {"shape": shape, "content_type": flow.request.headers.get("content-type", "unknown"), "bytes": len(body)}
-            route = f"{flow.request.host.lower()} {flow.request.method} /{'/'.join(pieces)}"
+            route = f"{host} {flow.request.method} /{'/'.join(pieces)}"
             with self.store.connect() as db:
                 db.execute("INSERT INTO capture_routes VALUES (?,?,1) ON CONFLICT(route) DO UPDATE SET keys=excluded.keys,count=count+1", (route, json.dumps(info)))
         try:
-            capture = generation_request(flow.request.host, flow.request.path, body)
+            capture = generation_request(host, flow.request.path, body)
         except (TypeError, AttributeError):
             capture = None
+        if not capture:
+            self._audit(flow, "no_generation_parser_bound")
         if capture:
-            self.store.capture_seen(flow.request.host.lower(), prompt=True)
+            self.store.capture_seen(host, prompt=True)
             ident = self.store.add(capture["provider"], capture["model"], capture["prompt"], "Web conversations")
             self.store.link_exchange(ident, capture["provider"], capture["conversation_id"], capture["message_id"], capture["parent_message_id"])
+            self._audit(flow, "prompt_recorded")
             flow.metadata["wirebrain"] = {"id": ident, "provider": capture["provider"], "stream": stream_for(capture["provider"]), "saved": 0}
             # Ensure the streamed bytes can be parsed without buffering compressed data.
             # This affects only allowlisted services' generation requests.
@@ -149,6 +200,12 @@ class WebCapture:
 
         flow.response.stream = tee
 
+    def _audit(self, flow, outcome):
+        if os.environ.get("WIREBRAIN_LOCAL_READY"):
+            host = provider_host(flow)
+            print(json.dumps({"time":time.time(), "flow":str(flow.id), "host":host or None,
+                              "gate":flow.metadata["wirebrain_gate"], "outcome":outcome}), flush=True)
+
     def response(self, flow):
         if flow.metadata.get('wirebrain_channel'):
             flow.metadata['wirebrain_channel'].feed(b'\n')
@@ -177,17 +234,23 @@ class WebCapture:
         if not stream_content_type(state['provider'], flow.response.headers.get("content-type", "")) and status != "error":
             status = "unsupported"
         if state.get("failed"): status = "capture_error"
-        self.store.update(state["id"], stream.text, status)
+        if status == "interrupted" and state["provider"] == "chatgpt" and stream.text:
+            status = "unconfirmed"
+        reason = ("provider_completion_marker" if status == "complete" else
+                  "eof_without_terminal_marker" if status in ("interrupted", "unconfirmed") else status)
+        self.store.update(state["id"], stream.text, status, terminal_reason=reason)
+        self._audit(flow, status)
         self.store.link_exchange(state['id'], state['provider'], stream.conversation_id, response_message_id=stream.response_message_id)
 
     def websocket_message(self, flow):
-        if flow.request.host.lower() in ('grok.com','www.grok.com') and urlsplit(flow.request.path).path=='/ws/mgw/':
+        host = provider_host(flow)
+        if host in ('grok.com','www.grok.com') and urlsplit(flow.request.path).path=='/ws/mgw/':
             from wirebrain.grok_socket import GrokSocket
             if getattr(flow,'websocket',None):
                 capture=flow.metadata.setdefault('wirebrain_grok_socket',GrokSocket(self.store))
                 capture.receive(flow.websocket.messages)
             return
-        if flow.request.host.lower()!='gateway.meta.ai': return
+        if host!='gateway.meta.ai': return
         from wirebrain.binarycapture import dgw_frames, meta_prompt, MetaReply
         websocket=getattr(flow,'websocket',None)
         if not websocket:return
@@ -228,11 +291,12 @@ class WebCapture:
         flow.metadata['wirebrain_meta_processed']=len(messages)
 
     def websocket_end(self, flow):
+        host = provider_host(flow)
         if flow.metadata.get('wirebrain_grok_socket'):
             self.websocket_message(flow)
             flow.metadata['wirebrain_grok_socket'].finish()
             return
-        if flow.request.host.lower()!='gateway.meta.ai':return
+        if host!='gateway.meta.ai':return
         self.websocket_message(flow)
         for state in flow.metadata.get('wirebrain_meta_streams',{}).values():
             if state.get('id') and not state['reply'].done:
@@ -243,7 +307,14 @@ class WebCapture:
             flow.metadata['wirebrain_channel'].interrupted()
         state = flow.metadata.get("wirebrain")
         if state:
-            self.store.update(state["id"], state["stream"].text, "interrupted")
+            stream = state["stream"]
+            stream.finish()
+            status = stream.status
+            if state.get("failed"):
+                status = "capture_error"
+            reason = "transport_error_after_completion" if status == "complete" else "transport_error"
+            self.store.update(state["id"], stream.text, status, terminal_reason=reason)
+            self._audit(flow, reason)
 
 
 addons = [WebCapture()]

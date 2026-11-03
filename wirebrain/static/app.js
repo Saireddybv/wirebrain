@@ -97,7 +97,7 @@ function setRecording(capture){
   $('#chip-dot').classList.toggle('off',!running);$('#chip-label').textContent=running?'Recording':starting?'Starting':'Paused';
   $('#recording-chip').setAttribute('aria-label',`Recording ${running?'is on':starting?'is starting':'is paused'}. Open recording controls`);
   $('#recording-dot').classList.toggle('off',!running);$('#recording-title').textContent=running?'Your diary is remembering':starting?'Getting ready to remember':'Recording is paused';
-  $('#capture-status').textContent=running?(capture.system_proxy?'Your recorder is connected. Supported text conversations are saved on this computer.':'The recorder is open, but your apps are not connected to it yet.'):starting?'Your recorder is starting. This can take a few moments.':'Your memories are still here. Resume when you want to capture new conversations.';
+  $('#capture-status').textContent=running?(capture.local_capture?'Process capture is active for Chrome, ChatGPT and Claude. Windows proxy settings are unchanged.':capture.system_proxy?'Your recorder is connected. Supported text conversations are saved on this computer.':'The recorder is open, but your apps are not connected to it yet.'):starting?'Your recorder is starting. This can take a few moments.':'Your memories are still here. Resume when you want to capture new conversations.';
   $('#recording-toggle').textContent=running?'Pause recording':starting?'Starting…':'Resume recording';$('#recording-toggle').disabled=Boolean(starting);$('#recording-toggle').dataset.running=String(running);
 }
 async function refresh(){
@@ -205,7 +205,7 @@ async function loadLocal(){
     if(config.writing_provider==='chatgpt')$('#local-status').textContent='ChatGPT testing mode is selected. Selected excerpts are sent to OpenAI; keyword and embedding search stay on this computer.';
     $('#setup-capture-status').textContent=stats.capture?.running?'Your recorder is running. Send a test message in each supported app and check that the complete reply appears.':`Recording is paused. Automatic setup supports Windows and macOS; macOS capture still needs real-device verification.`;
     const quotedHome="'"+localState.home.replaceAll("'",localState.platform==='Windows'?"''":"'\\''")+"'";
-    $('#setup-command').textContent='wirebrain --home '+quotedHome+' capture --install-ca --system-proxy';
+    $('#setup-command').textContent='wirebrain --home '+quotedHome+' capture --install-ca '+(localState.platform==='Windows'?'--local-capture':'--system-proxy');
   }catch(error){$('#local-status').textContent=error.message;}
 }
 $('#local-setup').onclick=()=>{setMenu(false);$('#local-dialog').showModal();loadLocal();};

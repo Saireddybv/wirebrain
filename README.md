@@ -62,9 +62,11 @@ Windows also provides `Start-Wirebrain.ps1`; on macOS use `bash Start-Wirebrain.
 
 ### Start and stop
 
+Windows source setup now uses an experimental process-scoped recorder for existing Chrome, ChatGPT and Claude processes. Its first run may need OS permission and current-user certificate trust. It does not change the Windows manual proxy. Live compatibility, crash recovery and clean removal for this mode are still release gates. See [Windows prototype checks](docs/HTTPS_CAPTURE.md#windows-prototype-acceptance-checks).
+
 Keep the launcher terminal open while using Wirebrain. **Ctrl+C** stops its foreground processes and restores proxy settings. A separate recovery process also restores the proxy if the recorder is killed unexpectedly. The diary's recording controls can pause or resume an already-configured recorder.
 
-If the computer loses power, or all Wirebrain processes are killed together, the recovery process cannot run. Restore the saved proxy settings with:
+For legacy system-proxy sessions, if the computer loses power or all Wirebrain processes are killed together, the recovery process cannot run. Restore the saved proxy settings with:
 
 ```sh
 wirebrain --home /absolute/path/to/your/diary capture-reset

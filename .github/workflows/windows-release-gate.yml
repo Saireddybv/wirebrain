@@ -1,0 +1,26 @@
+name: Windows capture release gate
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  teardown:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    env:
+      WIREBRAIN_DISPOSABLE_RUNNER: '1'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.11'
+      - run: python -m pip install ".[capture]" playwright
+      - name: Exercise teardown and verify fresh Chrome connections
+        run: python scripts/run_windows_teardown_trial.py "$env:RUNNER_TEMP/wirebrain-gate"
+      - name: Print synthetic results (never upload CA keys or profiles)
+        if: always()
+        shell: pwsh
+        run: |
+          Get-ChildItem "$env:RUNNER_TEMP/wirebrain-gate" -Filter stream-proof.json -Recurse | ForEach-Object { Get-Content $_.FullName }

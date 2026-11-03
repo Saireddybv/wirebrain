@@ -146,6 +146,18 @@ class AddonTests(unittest.TestCase):
         self.assertEqual(self.store.list()[0]['status'], 'unsupported')
 
 
+    def test_transport_disconnect_after_terminal_marker_preserves_completion(self):
+        flow = self.flow()
+        self.addon.request(flow)
+        self.addon.responseheaders(flow)
+        raw = sse({"message":{"author":{"role":"assistant"},"content":{"content_type":"text","parts":["4 5 6"]}}})
+        flow.response.stream(raw + b"data: [DONE]\n\n")
+        self.addon.error(flow)
+        row = self.store.list()[0]
+        self.assertEqual((row["status"],row["response"],row["terminal_reason"]),
+                         ("complete","4 5 6","transport_error_after_completion"))
+
+
 class HistoryRepairTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -165,6 +177,14 @@ class HistoryRepairTests(unittest.TestCase):
         self.assertEqual(self.store.list('full')[0]['response'], 'Hello, here is the full answer.')
         self.assertEqual(len(self.store.list()), 1)
         self.assertEqual(self.store.repair_chatgpt_history(self.data), 0)
+
+    def test_provider_history_confirms_identical_interrupted_native_reply(self):
+        ident = self.store.add("chatgpt", "auto", "Hello")
+        self.store.update(ident, "4 5 6", "interrupted")
+        self.data["mapping"]["answer"]["message"]["content"]["parts"] = ["4 5 6"]
+        self.assertEqual(self.store.repair_chatgpt_history(self.data), 1)
+        row = self.store.list()[0]
+        self.assertEqual((row["status"], row["terminal_reason"]), ("complete", "confirmed_by_provider_history"))
 
     def test_history_is_not_imported_without_existing_capture(self):
         self.assertEqual(self.store.repair_chatgpt_history(self.data), 0)

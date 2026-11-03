@@ -3,14 +3,40 @@
 No cookies, authorization headers, page titles, or unrelated traffic are stored.
 Parsing is intentionally independent of mitmproxy so it can be tested offline.
 """
+import hashlib
 import json
 import re
 from urllib.parse import urlsplit
 
-HOSTS = {"chatgpt.com": "chatgpt", "chat.openai.com": "chatgpt", "claude.ai": "claude",
-         "gemini.google.com":"gemini", "geminiweb-pa.clients6.google.com":"gemini", "grok.com":"grok", "www.grok.com":"grok",
-         "meta.ai":"meta", "www.meta.ai":"meta", "graph.meta.ai":"meta", "gateway.meta.ai":"meta"}
-ALLOW_HOSTS = r"^(" + '|'.join(re.escape(host) for host in HOSTS) + r")(:443)?$"
+from importlib.resources import files
+
+def load_registry(raw):
+    def unique(pairs):
+        result = dict(pairs)
+        if len(result) != len(pairs):
+            raise ValueError("Duplicate key in capture registry")
+        return result
+
+    data = json.loads(raw, object_pairs_hook=unique)
+    if (not isinstance(data, dict) or set(data) != {"version", "match", "sha256", "hosts"}
+            or type(data["version"]) is not int or data["version"] != 1 or data["match"] != "exact-fqdn"):
+        raise ValueError("Unsupported capture registry schema")
+    hosts = data["hosts"]
+    label = r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
+    if not isinstance(hosts, dict) or not hosts:
+        raise ValueError("Empty capture registry")
+    for host, provider in hosts.items():
+        if (len(host) > 253 or not re.fullmatch(rf"{label}(?:\.{label})+", host)
+                or provider not in ("chatgpt", "claude", "gemini", "grok", "meta")):
+            raise ValueError("Invalid host or provider in capture registry")
+    digest = hashlib.sha256(json.dumps(hosts, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    if data["sha256"] != digest:
+        raise ValueError("Capture registry hash mismatch")
+    return hosts
+
+
+HOSTS = load_registry(files("wirebrain").joinpath("capture_hosts.json").read_text(encoding="utf-8"))
+ALLOW_HOSTS = r"\A(?:" + "|".join(re.escape(host) for host in HOSTS) + r")(?::443)?\Z"
 MAX_TEXT = 2 * 1024 * 1024
 
 

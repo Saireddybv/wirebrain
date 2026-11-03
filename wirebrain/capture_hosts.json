@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "match": "exact-fqdn",
+  "sha256": "0791e2f6c403f363cc0bc53b19ee176bb0dc9d75b60ff3764d1d3a7bebbde2c6",
+  "hosts": {
+    "chatgpt.com": "chatgpt",
+    "chat.openai.com": "chatgpt",
+    "claude.ai": "claude",
+    "gemini.google.com": "gemini",
+    "geminiweb-pa.clients6.google.com": "gemini",
+    "grok.com": "grok",
+    "www.grok.com": "grok",
+    "meta.ai": "meta",
+    "www.meta.ai": "meta",
+    "graph.meta.ai": "meta",
+    "gateway.meta.ai": "meta"
+  }
+}

@@ -47,6 +47,7 @@ class Store:
                   demo INTEGER DEFAULT 0);
                 CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts USING fts5(id UNINDEXED, prompt, response, project);
                 CREATE TABLE IF NOT EXISTS reflections (day TEXT PRIMARY KEY, body TEXT, updated TEXT);
+                CREATE TABLE IF NOT EXISTS exchange_end (id TEXT PRIMARY KEY, reason TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS capture_state (id INTEGER PRIMARY KEY CHECK (id=1), body TEXT);
                 CREATE TABLE IF NOT EXISTS capture_control (id INTEGER PRIMARY KEY CHECK (id=1), stop INTEGER DEFAULT 0);
                 CREATE TABLE IF NOT EXISTS capture_diagnostics (host TEXT PRIMARY KEY, requests INTEGER DEFAULT 0, prompts INTEGER DEFAULT 0, last_seen TEXT);
@@ -139,7 +140,7 @@ class Store:
             db.execute("INSERT INTO memory_fts VALUES (?,?,?,?)", (ident, redact(prompt), "", redact(project)))
         return ident
 
-    def update(self, ident, response, status="complete", usage=None):
+    def update(self, ident, response, status="complete", usage=None, *, terminal_reason=None):
         usage = usage or {}
         reported = [usage.get('input_tokens',usage.get('prompt_tokens')),
                     usage.get('output_tokens',usage.get('completion_tokens'))]
@@ -148,6 +149,8 @@ class Store:
             db.execute("UPDATE conversations SET response=?,status=?,input_tokens=coalesce(?,input_tokens),output_tokens=coalesce(?,output_tokens) WHERE id=?",
                        (redact(response), status, *reported, ident))
             db.execute("UPDATE memory_fts SET response=? WHERE id=?", (redact(response), ident))
+            if status != "streaming":
+                db.execute("INSERT OR REPLACE INTO exchange_end VALUES (?,?)", (ident, terminal_reason or status))
             if any(value is not None for value in reported):
                 db.execute('INSERT INTO usage_metadata VALUES (?,1,?,?) ON CONFLICT(exchange_id) DO UPDATE SET reported=1,input_reported=max(usage_metadata.input_reported,excluded.input_reported),output_reported=max(usage_metadata.output_reported,excluded.output_reported)',
                            (ident,int(reported[0] is not None),int(reported[1] is not None)))
@@ -207,9 +210,10 @@ class Store:
                         candidates.append(row)
                 if len(candidates) != 1: continue
                 ident = candidates[0]["id"]
-                if len(response) > len(candidates[0]['response']):
+                if len(response) > len(candidates[0]['response']) or candidates[0]['status'] != 'complete':
                     db.execute("UPDATE conversations SET response=?,status='complete' WHERE id=?", (response, ident))
                     db.execute("UPDATE memory_fts SET response=? WHERE id=?", (response, ident))
+                    db.execute("INSERT OR REPLACE INTO exchange_end VALUES (?,?)", (ident, "confirmed_by_provider_history"))
                     repaired += 1
                 if conversation_id:
                     links.append((ident, pair))
@@ -222,7 +226,7 @@ class Store:
              date_from=None, date_to=None, provider='', project='', model=''):
         with self.connect() as db:
             args = []
-            sql = """SELECT c.*,coalesce(flags.favorite,0) AS favorite,e.thread_id,e.message_id,e.parent_message_id,e.response_message_id,
+            sql = """SELECT c.*,coalesce((SELECT reason FROM exchange_end WHERE id=c.id),CASE WHEN c.status<>'streaming' THEN 'legacy_unknown' END) AS terminal_reason,coalesce(flags.favorite,0) AS favorite,e.thread_id,e.message_id,e.parent_message_id,e.response_message_id,
                      t.conversation_id,t.title AS thread_title,t.source_url,
                      coalesce(u.reported,CASE WHEN c.input_tokens>0 OR c.output_tokens>0 THEN 1 ELSE 0 END) AS usage_reported,
                      coalesce(u.input_reported,CASE WHEN c.input_tokens>0 THEN 1 ELSE 0 END) AS input_reported,
@@ -274,6 +278,7 @@ class Store:
             invalidate_source(db, ident)
             db.execute('DELETE FROM personal_memory_queue WHERE exchange_id=?', (ident,))
             db.execute("DELETE FROM memory_fts WHERE id=?", (ident,))
+            db.execute("DELETE FROM exchange_end WHERE id=?", (ident,))
             db.execute("DELETE FROM conversations WHERE id=?", (ident,))
             db.execute("DELETE FROM memory_vectors WHERE exchange_id=?", (ident,))
             db.execute("DELETE FROM exchange_threads WHERE exchange_id=?", (ident,))

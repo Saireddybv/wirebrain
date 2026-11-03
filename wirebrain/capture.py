@@ -25,8 +25,12 @@ def executable():
     return found
 
 
-def command(home, port):
-    return [executable(), "--listen-host", "127.0.0.1", "--listen-port", str(port),
+LOCAL_MODE = "local:chrome.exe,ChatGPT.exe,claude.exe"
+
+
+def command(home, port, local_capture=False):
+    routing = ["--mode", LOCAL_MODE] if local_capture else ["--listen-host", "127.0.0.1", "--listen-port", str(port)]
+    return [executable(), *routing,
             "--set", f"confdir={Path(home).resolve() / 'certificates'}",
             "--set", "flow_detail=0", "--set", "termlog_verbosity=error",
             "--set", "connection_strategy=lazy", "--allow-hosts", ALLOW_HOSTS,
@@ -138,6 +142,7 @@ def remove_ca(home):
         der = ssl.PEM_cert_to_DER_cert(cert.read_text(encoding="ascii"))
         fingerprint = hashlib.sha1(der).hexdigest()
         subprocess.run(["certutil", "-user", "-delstore", "Root", fingerprint], check=True, capture_output=True)
+    (Path(home)/"local-capture-authorized").unlink(missing_ok=True)
 
 
 def recover_proxy(home):
@@ -169,10 +174,14 @@ def start_background(home):
     if sys.platform == 'darwin' and not (Path(home)/'mac-capture-authorized').exists():
         raise ValueError('Complete the one-time macOS capture setup first')
     executable()  # Check the optional runtime before accepting the request.
-    recover_proxy(home)
+    if os.name == "nt":
+        if not (Path(home)/"local-capture-authorized").exists():
+            raise ValueError("Complete process capture setup in Local setup first.")
+    else:
+        recover_proxy(home)
     Store(home).capture_state({'running':False, 'starting':True, 'heartbeat':time.time()})
     with (Path(home)/'capture-runtime.log').open('ab') as log:
-        proc = subprocess.Popen([sys.executable,'-m','wirebrain','--home',str(Path(home).resolve()),'capture','--system-proxy'],
+        proc = subprocess.Popen([sys.executable,'-m','wirebrain','--home',str(Path(home).resolve()),'capture','--local-capture' if os.name == 'nt' else '--system-proxy'],
                                 stdout=log,stderr=log,creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
     # Reap the launcher when the recorder exits, including after dashboard pause.
     import threading
@@ -187,7 +196,46 @@ def start_background(home):
     return {'ok':True,'starting':True}
 
 
-def run(home, port=8082, install_ca=False, system_proxy=False):
+def prepare_process_trust(home, install_ca):
+    from mitmproxy.certs import CertStore
+    directory = Path(home) / "certificates"
+    if install_ca:
+        CertStore.from_store(directory, "mitmproxy", 2048)
+    cert = directory / "mitmproxy-ca-cert.pem"
+    if not cert.exists():
+        raise ValueError("Complete local capture certificate setup first.")
+    der = ssl.PEM_cert_to_DER_cert(cert.read_text(encoding="ascii"))
+    if any(entry[0] == der for entry in ssl.enum_certificates("ROOT")):
+        return False
+    if not install_ca:
+        raise ValueError("This recorder's CA is not trusted. Complete Local setup first.")
+    subprocess.run(["certutil", "-user", "-addstore", "Root", str(cert.resolve())],
+                   check=True, capture_output=True)
+    return True
+
+
+def run(home, port=8082, install_ca=False, system_proxy=False, local_capture=False):
+    from contextlib import nullcontext
+    from .driver_guard import guard
+    added_ca = False
+    if local_capture:
+        if os.name != "nt" or system_proxy:
+            raise ValueError("Process capture requires Windows and cannot change system proxy settings.")
+        if (Path(home) / "proxy-backup.json").exists():
+            raise ValueError("Pause legacy capture and restore its proxy before using process capture.")
+        executable()
+    try:
+        with guard(home) if local_capture else nullcontext() as guardian:
+            if local_capture:
+                added_ca = prepare_process_trust(home, install_ca)
+            _run(home, port, install_ca, system_proxy, local_capture, guardian)
+    except BaseException:
+        if added_ca:
+            remove_ca(home)
+        raise
+
+
+def _run(home, port, install_ca, system_proxy, local_capture, guardian=None):
     if not 1 <= port <= 65535:
         raise ValueError("Port must be between 1 and 65535")
     if (install_ca or system_proxy) and os.name != "nt" and sys.platform != "darwin":
@@ -195,21 +243,32 @@ def run(home, port=8082, install_ca=False, system_proxy=False):
     if system_proxy and (Path(home) / "proxy-backup.json").exists():
         raise ValueError("Run wirebrain capture-reset to restore the previous proxy first")
     # Refuse to hijack an existing listener.
-    with socket.socket() as sock:
-        sock.bind(("127.0.0.1", port))
+    if not local_capture:
+        with socket.socket() as sock:
+            sock.bind(("127.0.0.1", port))
     env = {**os.environ, "WIREBRAIN_HOME": str(Path(home).resolve())}
-    proc = subprocess.Popen(command(home, port), env=env)
+    ready = Path(home).resolve() / ("local-ready-" + uuid.uuid4().hex)
+    if local_capture:
+        env["WIREBRAIN_LOCAL_READY"] = str(ready)
+    else:
+        env.pop("WIREBRAIN_LOCAL_READY", None)
+    store = Store(home)
+    store.capture_stop(False)
+    proc = subprocess.Popen(command(home, port, local_capture), env=env,
+                            stdin=subprocess.PIPE if local_capture else None)
     changed_proxy = False
     guard = None
     session = uuid.uuid4().hex
-    store = Store(home)
-    store.capture_stop(False)
     try:
         deadline = time.monotonic() + 30
         cert = Path(home) / "certificates" / "mitmproxy-ca-cert.cer"
         while time.monotonic() < deadline:
             if proc.poll() is not None:
                 raise ValueError("Capture proxy exited during startup")
+            if local_capture:
+                if ready.exists() and cert.exists(): break
+                time.sleep(.1)
+                continue
             try:
                 with socket.create_connection(("127.0.0.1", port), timeout=.2):
                     if cert.exists(): break
@@ -217,7 +276,7 @@ def run(home, port=8082, install_ca=False, system_proxy=False):
             time.sleep(.1)
         else:
             raise ValueError("Capture proxy did not become ready")
-        if install_ca:
+        if install_ca and not local_capture:
             try:
                 if sys.platform == 'darwin':
                     from .macos import install_ca as mac_install
@@ -233,13 +292,19 @@ def run(home, port=8082, install_ca=False, system_proxy=False):
             guard = start_guard(home, session)
             set_proxy(home, port, session=session)
             changed_proxy = True
-        print(f"HTTPS capture listening at 127.0.0.1:{port}\nTargets: ChatGPT, Claude, Gemini, Grok, and Meta AI allowlisted traffic.\nDashboard: run wirebrain up in another terminal.\nCtrl+C stops capture and restores proxy settings.", flush=True)
-        if not system_proxy:
+        if local_capture:
+            (Path(home)/"local-capture-authorized").touch()
+            print("Process capture ready for Chrome, ChatGPT and Claude. Windows proxy settings are unchanged.", flush=True)
+        else:
+            print(f"HTTPS capture listening at 127.0.0.1:{port}\nTargets: ChatGPT, Claude, Gemini, Grok, and Meta AI allowlisted traffic.\nDashboard: run wirebrain up in another terminal.\nCtrl+C stops capture and restores proxy settings.", flush=True)
+        if not system_proxy and not local_capture:
             print("System proxy is unchanged. No apps are routed here automatically yet.", flush=True)
         if not install_ca:
             print(f"No certificate trust changes made this run. CA certificate: {cert.resolve()}", flush=True)
         while proc.poll() is None and not store.capture_stop():
-            store.capture_state({"running": True, "port": port, "system_proxy": changed_proxy,
+            if guardian is not None and guardian.poll() is not None:
+                raise ValueError("Driver guardian exited; stopping capture.")
+            store.capture_state({"running": True, "port": port, "system_proxy": changed_proxy, "local_capture": local_capture,
                                  "ca_installed_this_run": install_ca, "heartbeat": time.time()})
             time.sleep(2)
     except KeyboardInterrupt:
@@ -253,6 +318,11 @@ def run(home, port=8082, install_ca=False, system_proxy=False):
                     from .proxy_guard import finish as finish_guard
                     finish_guard(guard)
             finally:
+                if local_capture:
+                    proc.stdin.close()
+                    try: proc.wait(timeout=5)
+                    except subprocess.TimeoutExpired: pass
+                    ready.unlink(missing_ok=True)
                 if proc.poll() is None:
                     terminate_process(proc)
                 store.capture_state({"running": False, "heartbeat": time.time()})

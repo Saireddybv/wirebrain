@@ -33,6 +33,9 @@ jobs:
       - name: Check public site metadata and links
         if: matrix.os == 'ubuntu-latest' && matrix.python == '3.11'
         run: python scripts/check_site.py
+      - name: Verify installed capture registry
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.11'
+        run: python scripts/check_capture_wheel.py
       - run: node --check wirebrain/static/personal-memory.js
       - run: node --check wirebrain/static/reflect.js
       - run: node --check wirebrain/static/conversation-tools.js

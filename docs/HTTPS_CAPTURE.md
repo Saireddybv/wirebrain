@@ -16,16 +16,27 @@ python -m venv .venv-capture
 In another terminal, explicitly enable capture:
 
 ```powershell
-.\.venv-capture\Scripts\python.exe -m wirebrain --home .wirebrain capture --install-ca --system-proxy
+.\.venv-capture\Scripts\python.exe -m wirebrain --home .wirebrain capture --install-ca --local-capture
 ```
 
-These two flags are a deliberate one-time choice: trust the local capture certificate in the current Windows user's certificate store, and temporarily set that user's Windows HTTP proxy to `127.0.0.1:8082`. No administrator/root trust store or shell profile is changed. The CA's private key remains under `.wirebrain/certificates/`; do not share or commit that directory.
+The experimental Windows path uses mitmproxy Local Capture for Chrome, ChatGPT and Claude processes. Windows may ask for permission to start the network redirector. Setup trusts this diary's CA for the current user. Keep the private key under the diary certificates directory private. No browser extension, second login or Windows manual proxy configuration is involved. Process selection covers the browser process, including unrelated tabs. The host registry controls eligible HTTPS traffic. A client may reject the CA or use a different helper process. Native app coverage and forced termination on a real device are pending verification.
 
 Open your existing ChatGPT or Claude tab and submit a **new** message. If the browser already has a persistent connection, reload the tab after enabling capture. View the prompt and streamed text reply at **http://127.0.0.1:3333**. Captures have `ChatGPT` or `Claude` source badges and are kept separate from `DEMO` records. Token usage is unavailable for web capture and is not estimated.
 
 The dashboard reports whether the listener is active and whether Windows routing is enabled. That is listener/routing status, not proof that every app is compatible. A real captured exchange is the proof.
 
+## Windows prototype acceptance checks
+
+On a test PC, record the manual proxy enable flag, server, bypass and WinINet flags before starting. Check the same values during recording, after pause, after forced termination, and after removal. Do not enable the legacy proxy for these tests.
+
+1. Submit distinct multi-turn probes in existing signed-in Chrome ChatGPT and Claude tabs. Compare the complete replies and conversation IDs with the diary.
+2. Repeat separately in each native app. Record app version, process names and observed result, including rejected certificates or unsupported transports.
+3. While loading an unrelated site in Chrome, force-stop the recorder and separately test terminating the controller. Verify fresh HTTPS connections work, with no manual proxy edits and no further captures.
+4. Pause, run the exact CA removal command below, and verify the diary CA fingerprint is absent from the current-user root store. Compare the original network settings and check that the redirector is no longer intercepting. Keep the diary database unless the owner requests deletion.
+
 ## Stop and undo
+
+Process capture stops when paused. The proxy restoration guidance below applies to legacy system-proxy sessions.
 
 Click **Stop capture** in the dashboard, or press Ctrl+C in the capture terminal. Previous proxy values are restored before the listener stops. The dashboard can remain running.
 
@@ -76,3 +87,17 @@ The system proxy routes proxy-aware web traffic through the local listener, incl
 The suite includes a real HTTPS CONNECT proxy test. A test client trusts a temporary CA only within its own SSL context; it sends ChatGPT and Claude protocol fixtures through mitmproxy to an offline HTTP streaming provider. The test verifies that both replies reach SQLite and credentials do not. It neither trusts a certificate system-wide nor changes Windows routing nor contacts the real services. Live account verification remains a separate step.
 
 The optional dependency is isolated in `.venv-capture`. Python 3.11 currently installs mitmproxy 11.0.2 for these tests. Keep this local experimental interceptor private; do not expose its listener to other machines.
+
+### Evidence for a release candidate
+
+The version 1 registry accepts exact lowercase DNS names only. Wildcards, implicit subdomains, duplicate keys, invalid provider bindings and empty registries are rejected. Its SHA-256 covers canonical sorted compact JSON of the host map; this detects accidental edits, not malicious replacement of both the file and hash. Coverage changes currently require redistributing the package.
+
+For process capture, require explicit HTTP/1 Host or HTTP/2 and HTTP/3 authority matching TLS SNI, allowing the default HTTPS port. Missing or inconsistent identities skip recording. This supplements upstream TLS validation. The per-flow diagnostics identify matched allowlisted hosts and gate decisions without logging raw unrecognized hosts or request data. Traffic bypassing the HTTP parser may have no diagnostic event.
+
+Use a separate trial diary. Save timestamped evidence outside the public repo. From PowerShell, run scripts/check_windows_trial.ps1 with -OutputFile before.json **before** enabling capture. Repeat for during.json, paused.json and removed.json. After removal, pass -Baseline before.json to make the comparison fail when the recorded proxy values, connection blobs, root thumbprints, or redirector/driver state differ. Investigate each difference; the snapshot covers specified network and trust state, not the entire machine.
+
+Compare each test reply with the text visible in the source app. Repeat abrupt termination during a page load and a fresh HTTPS handshake; retain timing and verify fresh connections in Chrome. Record pass, fail, or untested for each native app separately. A successful startup or matching proxy snapshot is insufficient. Keep the Windows installer release gated on clean removal, verified crash behavior, signing and a reproducible build.
+
+Tagging a candidate `v*` triggers the Windows capture release workflow; it can also be dispatched manually. Only run its full seven-cycle gate on a disposable Windows machine with Chrome, Playwright, and the capture dependency. Three Chrome cases use a clean browser profile and a synthetic loopback TLS origin on port 443. Each requires agreement between Chrome and the diary at a specific streamed chunk, kills the worker, and checks fresh public HTTPS before resetting trust. The gate fails if a checkpoint is missing or snapshots drift. An interrupted in-flight reply is expected. Do not publish a candidate unless this workflow has passed for its commit; workflow configuration alone is not evidence of a passing run.
+
+Initial Windows observations (2026-11-03): Chrome ChatGPT captured all ten requested numbers. Chrome Claude missed a first send and captured the retry after reload. The private trial ledger counted 408 earlier HTTP-gate events, zero gate drops, and no event identifiable as the first send. Connection reuse, bypass, and handshake failure have not been distinguished. Native ChatGPT captured the expected text but reported interrupted; native Claude 4.4212.0 had no matching recorded turn. Neither observation establishes certificate pinning. Four teardown cycles matched baseline after cleanup; the three Chrome stream checkpoints need their own evidence.

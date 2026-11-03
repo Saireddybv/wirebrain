@@ -28,7 +28,7 @@ class CaptureStateTests(unittest.TestCase):
 
 class SetupNeededTests(unittest.TestCase):
     def test_unconfigured_home_reports_setup_and_refuses_resume(self):
-        with tempfile.TemporaryDirectory() as directory, patch('wirebrain.capture.sys.platform', 'darwin'), patch('wirebrain.capture.os.name', 'posix'):
+        with tempfile.TemporaryDirectory() as directory, patch('wirebrain.capture.sys.platform', 'darwin'):
             self.assertIn('one-time device setup', setup_needed(directory))
             with self.assertRaises(ValueError):
                 start_background(directory)

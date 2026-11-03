@@ -134,10 +134,19 @@ if __name__ == "__main__":
         (root/"controller.pid").write_text(str(os.getpid()))
         capture.LOCAL_MODE = "local:"+sys.argv[3]
         if sys.argv[3] == "chrome.exe":
-            # Trust only the fixture CA for the recorder's upstream connection.
+            # Avoid loopback bypass: Chrome targets a reserved TEST-NET address. After
+            # the production addon sees the authentic SNI and Host, route the synthetic
+            # request to our fixture. No real ChatGPT request should leave this runner.
+            addon = root/"fixture_route.py"
+            addon.write_text("""from pathlib import Path
+def request(flow):
+    if flow.client_conn.sni == 'chatgpt.com':
+        flow.request.scheme = 'http'
+        flow.request.host = '127.0.0.1'
+        flow.request.port = int(Path(__file__).with_name('fixture-port').read_text())
+""")
             cmd = capture.command
-            capture.command = lambda *a, **kw: cmd(*a, **kw) + ["--set",
-                "ssl_verify_upstream_trusted_ca=" + str(root/"diary"/"certificates"/"mitmproxy-ca-cert.pem")]
+            capture.command = lambda *a, **kw: cmd(*a, **kw) + ["--set","upstream_cert=false","-s",str(addon)]
         capture.run(root/"diary", install_ca=sys.argv[4]=="interactive", local_capture=True)
     else:
         parser=argparse.ArgumentParser(description=__doc__)

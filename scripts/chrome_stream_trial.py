@@ -2,16 +2,12 @@
 import json
 import os
 import signal
-import ssl
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 
 def run(root, worker, store, stop_at):
-    from cryptography import x509
-    from cryptography.hazmat.primitives import serialization
-    from mitmproxy.certs import CertStore
     from playwright.sync_api import sync_playwright
 
     prompt = "Wirebrain synthetic stream trial"
@@ -44,24 +40,16 @@ def run(root, worker, store, stop_at):
                     return
                 time.sleep(.8)
 
-    directory = store.home / "certificates"
-    ca = CertStore.from_store(directory, "mitmproxy", 2048)
-    leaf = ca.get_cert("chatgpt.com", [x509.DNSName("chatgpt.com")])
-    pem = directory / "fixture.pem"
-    pem.write_bytes(leaf.cert.to_pem() + leaf.privatekey.private_bytes(serialization.Encoding.PEM,
-                    serialization.PrivateFormat.PKCS8, serialization.NoEncryption()))
-    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-    context.load_cert_chain(pem)
-    pem.unlink()
-    with ThreadingHTTPServer(("127.0.0.1",443), Fixture) as server, sync_playwright() as driver:
-        server.socket = context.wrap_socket(server.socket, server_side=True)
+    with ThreadingHTTPServer(("127.0.0.1",0), Fixture) as server, sync_playwright() as driver:
+        (root/"fixture-port").write_text(str(server.server_port))
         threading.Thread(target=server.serve_forever, daemon=True).start()
         browser = driver.chromium.launch(channel="chrome", args=["--disable-quic",
-            "--host-resolver-rules=MAP chatgpt.com 127.0.0.1", "--disable-background-networking"])
+            "--host-resolver-rules=MAP chatgpt.com 198.51.100.17", "--disable-background-networking"])
         try:
             page = browser.new_page()
             page.goto("https://chatgpt.com/")
-            assert page.title() == "Wirebrain local fixture"
+            if page.title() != "Wirebrain local fixture":
+                raise RuntimeError("Synthetic Chrome request did not reach the intercepted fixture")
             page.evaluate("""prompt => { window.received = ''; (async () => {
               const response = await fetch('/backend-api/conversation', {method:'POST',
                 headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:[

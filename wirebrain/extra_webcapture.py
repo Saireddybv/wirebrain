@@ -146,5 +146,6 @@ def stream_for(provider):
 def stream_content_type(provider, content_type):
     kind=content_type.split(';',1)[0].strip().lower()
     if kind=='text/event-stream': return True
+    if provider=='claude' and kind=='application/connect+proto': return True
     return provider in ('gemini','grok','meta') and kind in (
         'application/json','application/x-ndjson','application/jsonl','text/plain','text/javascript')

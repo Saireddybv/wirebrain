@@ -393,7 +393,7 @@ def handler_factory(store, config, dashboard=False, upstreams=None):
     return Handler
 
 
-def serve(store, config):
+def serve(store, config, *, on_listening=None):
     gateway = (ThreadingHTTPServer(("127.0.0.1", config["gateway_port"]), handler_factory(store, config))
                if config.get('enable_api_gateway',False) else None)
     try:
@@ -402,6 +402,7 @@ def serve(store, config):
         if gateway: gateway.server_close()
         raise
     stop = threading.Event()
+    config["dashboard_port"] = dashboard.server_port
     from . import mcp_http
     from .mcp_access import Access
     mcp_config=Access(store.home).config()
@@ -440,6 +441,8 @@ def serve(store, config):
     print(f"Your Wirebrain diary  http://127.0.0.1:{config['dashboard_port']}\nPress Ctrl+C to stop the diary.", flush=True)
     if gateway: print(f"Optional developer gateway: http://127.0.0.1:{config['gateway_port']}",flush=True)
     try:
+        if on_listening:
+            on_listening(dashboard)
         dashboard.serve_forever()
     except KeyboardInterrupt:
         pass

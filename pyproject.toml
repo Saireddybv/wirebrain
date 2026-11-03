@@ -27,3 +27,6 @@ wirebrain = "wirebrain.cli:main"
 
 [tool.setuptools.package-data]
 wirebrain = ["capture_hosts.json", "static/*", "prompts/*.json", "prompts/*.md", "prompts/**/*.md", "prompts/**/*.json"]
+
+[tool.setuptools]
+packages = ["wirebrain"]

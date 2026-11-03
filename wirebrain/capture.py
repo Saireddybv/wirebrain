@@ -18,6 +18,8 @@ from .windows_proxy import connection_options
 
 
 def executable():
+    if Path(sys.executable).with_name("wirebrain-runtime").is_file():
+        return sys.executable
     candidate = Path(sys.executable).with_name("mitmdump.exe" if os.name == "nt" else "mitmdump")
     found = str(candidate) if candidate.exists() else shutil.which("mitmdump")
     if not found:
@@ -30,7 +32,10 @@ LOCAL_MODE = "local:chrome.exe,ChatGPT.exe,claude.exe"
 
 def command(home, port, local_capture=False):
     routing = ["--mode", LOCAL_MODE] if local_capture else ["--listen-host", "127.0.0.1", "--listen-port", str(port)]
-    return [executable(), *routing,
+    program = executable()
+    launch = ([program, "-I", "-c", "from mitmproxy.tools.main import mitmdump; mitmdump()"]
+              if program == sys.executable else [program])
+    return [*launch, *routing,
             "--set", f"confdir={Path(home).resolve() / 'certificates'}",
             "--set", "flow_detail=0", "--set", "termlog_verbosity=error",
             "--set", "connection_strategy=lazy", "--allow-hosts", ALLOW_HOSTS,

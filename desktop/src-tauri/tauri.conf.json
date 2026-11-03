@@ -1,0 +1,11 @@
+{
+  "$schema":"https://schema.tauri.app/config/2",
+  "productName":"Wirebrain",
+  "version":"0.1.0",
+  "identifier":"app.wirebrain.desktop",
+  "build":{"frontendDist":"../ui"},
+  "app":{"windows":[]},
+  "bundle":{"active":true,"targets":["nsis"],"icon":["icons/icon.ico","icons/icon.png"],
+    "resources":{"runtime/":"runtime/"},
+    "windows":{"nsis":{"installMode":"currentUser","installerHooks":"hooks.nsh"}}}
+}

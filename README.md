@@ -43,7 +43,7 @@ Reflections are grounded in captured evidence. A repeated question is not a prof
 
 ### Windows tester download
 
-1. Sign in to GitHub and open the [Windows installer builds](https://github.com/Saireddybv/wirebrain/actions/workflows/desktop-shell.yml?query=is%3Asuccess). Choose a successful recent build. Under **Artifacts**, download **Wirebrain-Windows-x64**.
+1. Sign in to GitHub and choose **Download Windows tester** on the [Wirebrain website](https://saireddybv.github.io/wirebrain/#setup), or open the [Windows installer builds](https://github.com/Saireddybv/wirebrain/actions/workflows/desktop-shell.yml?query=is%3Asuccess). Choose a successful recent build. Under **Artifacts**, download **Wirebrain-Windows-x64**.
 2. Extract the ZIP and open **Wirebrain-Setup-x64.exe**. The setup wizard installs the app for your Windows user. Python is included. This experimental installer is unsigned and Windows may show an unknown-publisher warning.
 3. Open **Wirebrain** from Start. Choose **Start recording** in the diary and confirm the Windows permissions on first use.
 4. Send a message in ChatGPT. Open the diary to see the saved exchange. Choose **Stop recording** in the diary or the Windows tray whenever you want to pause.

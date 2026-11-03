@@ -26,4 +26,4 @@ memory = ["fastembed>=0.7,<0.10", "huggingface-hub>=0.20,<3.0"]
 wirebrain = "wirebrain.cli:main"
 
 [tool.setuptools.package-data]
-wirebrain = ["static/*", "prompts/*.json", "prompts/*.md", "prompts/**/*.md", "prompts/**/*.json"]
+wirebrain = ["capture_hosts.json", "static/*", "prompts/*.json", "prompts/*.md", "prompts/**/*.md", "prompts/**/*.json"]

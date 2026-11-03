@@ -44,12 +44,13 @@ def main():
         else: raise SystemExit('The diary did not become ready.')
         webbrowser.open('http://127.0.0.1:3333/')
         print('\nCapture can read supported ChatGPT and Claude conversation traffic on this device.\n'
-              'Enabling it trusts a local certificate and changes your proxy settings until capture stops.\n'
+              'Windows process capture targets Chrome, ChatGPT and Claude and needs local certificate trust.\n'
+              'macOS setup temporarily changes the system proxy.\n'
               'Windows and macOS are supported by setup code; macOS still needs real-device verification.\n'
               'Your OS may ask you to approve certificate or network changes.')
         enable = input('Enable capture on this computer? Type yes, or press Enter for diary only: ').strip().lower()
         if enable == 'yes':
-            result = subprocess.run(base+['capture','--install-ca','--system-proxy'])
+            result = subprocess.run(base+['capture','--install-ca','--local-capture' if os.name=='nt' else '--system-proxy'])
             if result.returncode:
                 print('Capture setup did not finish. The diary remains open; check Local setup and the message above.')
         print('Diary open. Optional local AI and history import are in Local setup. Ctrl+C exits.')

@@ -62,7 +62,9 @@ def main():
     capture = commands.add_parser("capture", help="Capture existing ChatGPT/Claude HTTPS traffic; no provider API key needed")
     capture.add_argument("--port", type=int, default=8082)
     capture.add_argument("--install-ca", action="store_true", help="Explicitly trust the local interception CA in the user certificate store")
-    capture.add_argument("--system-proxy", action="store_true", help="Explicitly route supported proxy-aware apps through capture; restored on exit")
+    routing = capture.add_mutually_exclusive_group()
+    routing.add_argument("--local-capture", action="store_true", help="Experimental Windows process capture: Chrome, ChatGPT and Claude; no Windows proxy changes")
+    routing.add_argument("--system-proxy", action="store_true", help="Explicitly route supported proxy-aware apps through capture; restored on exit")
     reset = commands.add_parser("capture-reset", help="Restore saved proxy settings after an unclean capture shutdown")
     reset.add_argument("--remove-ca", action="store_true", help="Also remove this Wirebrain home's exact CA from the user trust store")
     search = commands.add_parser("search", help="Search local memory")
@@ -95,11 +97,14 @@ def main():
             serve(store, config)
         elif args.command == "capture":
             from .capture import run
-            run(store.home, args.port, args.install_ca, args.system_proxy)
+            run(store.home, args.port, args.install_ca, args.system_proxy, args.local_capture)
         elif args.command == "capture-reset":
             from .capture import reset_proxy, remove_ca
             store.capture_stop(True)
             reset_proxy(store.home)
+            if os.name == "nt":
+                from .driver_guard import recover_orphan
+                recover_orphan()
             if args.remove_ca: remove_ca(store.home)
             print("Previous proxy settings restored.")
         elif args.command == "mcp":

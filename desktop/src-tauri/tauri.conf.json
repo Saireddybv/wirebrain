@@ -7,5 +7,5 @@
   "app":{"windows":[]},
   "bundle":{"active":true,"targets":["nsis"],"icon":["icons/icon.ico","icons/icon.png"],
     "resources":{"runtime/":"runtime/"},
-    "windows":{"nsis":{"installMode":"currentUser","installerHooks":"hooks.nsh"}}}
+    "windows":{"nsis":{"installMode":"currentUser","installerHooks":"hooks.nsh","headerImage":"icons/setup-header.bmp","sidebarImage":"icons/setup-sidebar.bmp","installerIcon":"icons/icon.ico"}}}
 }

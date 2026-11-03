@@ -91,6 +91,19 @@ function renderReview(){
   if(diary.note&&!app&&!project){const card=node('article','review-card');card.append(node('h3','','In your own words'),node('p','',diary.note));target.append(card);}
 }
 const desktopDiary = window.__WIREBRAIN_DESKTOP__ === true;
+if(desktopDiary)document.documentElement.classList.add("desktop-diary");
+function updateWelcome(capture, running, starting, stopping){
+  const panel=$('#desktop-welcome');
+  panel.hidden=!desktopDiary||view!=='diary'||stats.exchanges!==0;
+  if(panel.hidden)return;
+  panel.dataset.recording=running?'on':'off';
+  $('#welcome-title').textContent=running?'Ready for your first chat':'Your conversation diary';
+  $('#welcome-message').textContent=running?'Send a message in ChatGPT. Once its reply is saved, your conversation will appear here.':'Turn on recording, then chat in an AI app you already use. Your prompts and replies will appear here.';
+  const button=$('#welcome-record');
+  button.textContent=stopping?'Stopping…':starting?'Starting…':running?'Stop recording':'Start recording';
+  button.disabled=Boolean(starting||stopping);
+  if(capture.error)$('#welcome-message').textContent=capture.error;
+}
 function setRecording(capture){
   const running=Boolean(capture.running),starting=!running&&!capture.error&&((startingAt&&Date.now()-startingAt<30000)||(capture.starting&&Date.now()/1000-capture.heartbeat<120));
   if(capture.error){$('#recording-error').textContent=capture.error;$('#recording-error').hidden=false;}
@@ -101,6 +114,7 @@ function setRecording(capture){
   $('#capture-status').textContent=running?(capture.local_capture?'Process capture is active for Chrome, ChatGPT and Claude. Windows proxy settings are unchanged.':capture.system_proxy?'Your recorder is connected. Supported text conversations are saved on this computer.':'The recorder is open, but your apps are not connected to it yet.'):starting?'Your recorder is starting. This can take a few moments.':'Your memories are still here. Resume when you want to capture new conversations.';
   const setup=!running&&!starting&&capture.setup_needed;
   const stopping=running&&capture.stopping;
+  updateWelcome(capture,running,starting,stopping);
   if(stopping){$('#recording-title').textContent='Pausing the recorder';$('#capture-status').textContent='Your recorder is stopping. You can resume in a moment.';}
   if(setup&&desktopDiary){$('#capture-status').textContent='Start recording to save supported AI conversations on this PC.';}
   if(setup&&!desktopDiary){$('#recording-title').textContent='Recording needs one-time setup';$('#capture-status').textContent='Your memories are still here. To record new conversations, open Local setup for the recording instructions.';}
@@ -144,6 +158,7 @@ $('#save-note').onclick=async()=>{const button=$('#save-note'),day=selectedDay,b
 $('#recording-toggle').onclick=async()=>{const button=$('#recording-toggle');button.disabled=true;$('#recording-error').hidden=true;try{if(button.dataset.running==='true'){await post('/api/capture/stop',{});toast('Pausing new recordings. Your memories stay here.');}else if(desktopDiary){window.location.assign('/desktop/start-recording');}else{await post('/api/capture/start',{});startingAt=Date.now();setRecording({});toast('Starting your recorder…');}await refresh();}catch(error){startingAt=0;$('#recording-error').textContent=error.message;$('#recording-error').hidden=false;}finally{if(!startingAt&&button.dataset.stopping!=='true')button.disabled=false;}};
 function openNotes(focus=false){$('#notes-sheet').showModal();if(focus)$('#day-note').focus();}
 $('#quick-note').onclick=()=>openNotes(true);
+$('#welcome-record').onclick=()=>$('#recording-toggle').click();
 $('#recording-chip').onclick=()=>{$('#recording-dialog').showModal();};
 $('#close-recording').onclick=()=>$('#recording-dialog').close();
 $('#close-notes').onclick=()=>$('#notes-sheet').close();

@@ -441,3 +441,39 @@ dialog::-webkit-scrollbar-thumb { border-radius: 8px; background: var(--subtle);
   :root:not([data-theme="dark"]) .global-search input { font-size:16px; }
   :root:not([data-theme="dark"]) .filter { font-size:11px;padding:7px 9px; }
 }
+/* The first page of an empty desktop diary. */
+#desktop-welcome {
+  --folio-bg:#f5f1e7; --folio-ink:#272e27; --folio-sub:#4f584e;
+  --folio-sun:#dfad73; --folio-edge:#d8d2c3;
+  position:relative; display:flex; align-items:center; justify-content:space-between;
+  gap:20px; margin:8px 0 28px; padding:clamp(24px,4vw,48px);
+  border:1px solid var(--folio-edge); border-radius:26px;
+  background:var(--folio-bg); color:var(--folio-ink); overflow:hidden;
+}
+#desktop-welcome[hidden] {display:none}
+:root[data-theme="dark"] #desktop-welcome {
+  --folio-bg:#242d29; --folio-ink:#f3f1e7; --folio-sub:#c4cec4;
+  --folio-sun:#bc926b; --folio-edge:#495149;
+}
+.welcome-copy {max-width:34rem;z-index:1}
+.welcome-kicker,.welcome-copy small {display:block;color:var(--folio-sub)}
+.welcome-kicker {display:flex;align-items:center;gap:8px;font-size:10px;font-weight:700;letter-spacing:.14em}
+.welcome-kicker i {width:6px;height:6px;border-radius:50%;background:var(--folio-sub)}
+#desktop-welcome[data-recording="on"] .welcome-kicker i {background:#4c9660}
+#desktop-welcome h2 {font:normal clamp(32px,4vw,52px)/1.04 Georgia,serif;letter-spacing:-.045em;margin:16px 0 12px;color:var(--folio-ink)}
+.welcome-copy p {font-size:15px;line-height:1.55;margin:0;max-width:42ch;color:var(--folio-sub)}
+#welcome-record {border:0;border-radius:100px;background:var(--folio-ink);color:var(--folio-bg);padding:11px 19px;margin:20px 0 8px;font-family:inherit;font-size:14px;font-weight:600;line-height:1.4;cursor:pointer}
+#welcome-record:focus-visible {outline:2px solid var(--folio-ink);outline-offset:4px}
+#welcome-record:disabled {opacity:.65;cursor:wait}
+.welcome-copy small {font-size:11px}
+.welcome-book {width:clamp(125px,22vw,240px);flex:none;color:var(--folio-ink)}
+@media(max-width:700px) {
+  #desktop-welcome {padding:24px;gap:4px}
+  .welcome-book {width:76px;align-self:flex-start}
+}
+@media(max-width:450px) {.welcome-book {display:none}}
+.desktop-diary #recording-dialog {border-radius:24px;padding:26px;max-width:min(425px,calc(100vw - 36px))}
+.desktop-diary #recording-dialog h2 {font:normal 30px/1.15 Georgia,serif;letter-spacing:-.04em}
+.desktop-diary #recording-dialog .recording-card {border-radius:16px;padding:18px}
+.desktop-diary #recording-chip {font-weight:600}
+.desktop-diary #recording-toggle {border-radius:100px}

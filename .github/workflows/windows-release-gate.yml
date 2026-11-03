@@ -1,6 +1,7 @@
 name: Windows capture release gate
 on:
   push:
+    branches: ['codex/rc-*']
     tags: ['v*']
   workflow_dispatch:
 permissions:

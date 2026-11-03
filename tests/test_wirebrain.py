@@ -170,6 +170,16 @@ class GatewayTests(unittest.TestCase):
         with self.request(self.ui + '/api/ask', {'query': 'networks'}) as response:
             self.assertEqual(len(json.load(response)['sources']), 2)
 
+    def test_portable_dataset_download(self):
+        ident = self.store.add('claude','test','Dataset question','Training')
+        self.store.update(ident,'Dataset answer')
+        with self.request(self.ui + '/api/export/messages?provider=claude&project=Training') as response:
+            self.assertIn('attachment', response.headers['Content-Disposition'])
+            self.assertIn('application/x-ndjson', response.headers['Content-Type'])
+            self.assertEqual([json.loads(line) for line in response], [{'messages':[
+                {'role':'user','content':'Dataset question'},
+                {'role':'assistant','content':'Dataset answer'}]}])
+
     def test_wire_redaction_is_opt_in(self):
         secret = 'sk-' + 'x' * 30
         for enabled in (False, True):

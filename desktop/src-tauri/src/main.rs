@@ -66,7 +66,7 @@ fn main() {
                     "pause" => control(app,"pause"),
                     "record" => {
                         let consent = rfd::MessageDialog::new().set_title("Turn on recording?")
-                            .set_description("Wirebrain can read supported AI conversations in Chrome and desktop apps and save them on this PC. Windows may ask you to trust a local certificate and allow its capture driver. Your manual proxy will not change. Claude Desktop 4.4212.0 is unsupported.")
+                            .set_description("Wirebrain can read supported AI conversations in Chrome and desktop apps and save them on this PC. Windows may ask you to trust a local certificate and allow its capture driver. Your manual proxy will not change. Claude Desktop recording is still being tested with this capture mode.")
                             .set_buttons(rfd::MessageButtons::OkCancel).show();
                         if consent == rfd::MessageDialogResult::Ok { control(app,"record"); }
                     },

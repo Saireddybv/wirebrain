@@ -64,7 +64,7 @@ class PortReuseTests(unittest.TestCase):
         listener.bind(('127.0.0.1', 0)); listener.listen(); port = listener.getsockname()[1]
         client = socket.create_connection(('127.0.0.1', port)); server_side, _ = listener.accept()
         with tempfile.TemporaryDirectory() as directory:
-            with patch('wirebrain.capture.subprocess.Popen', side_effect=RuntimeError('past bind check')):
+            with patch('wirebrain.capture.executable', return_value='mitmdump'), patch('wirebrain.capture.subprocess.Popen', side_effect=RuntimeError('past bind check')):
                 with self.assertRaises(OSError):      # live listener is still refused
                     run(directory, port)
                 server_side.close(); client.close(); listener.close()   # leaves TIME_WAIT on the port

@@ -132,7 +132,7 @@ def handler_factory(store, config, dashboard=False, upstreams=None):
                     available = True
                 except ValueError:
                     models, available = [], False
-                return self.reply({'settings':settings(store),'models':models,'available':available,'chatgpt':chatgpt_status(),'native_available':__import__('importlib.util',fromlist=['find_spec']).find_spec('fastembed') is not None,'platform':platform.system(), 'home':str(store.home.resolve()),'overview':overview(store)})
+                return self.reply({'settings':settings(store),'models':models,'available':available,'chatgpt':chatgpt_status(),'native_available':__import__('importlib.util',fromlist=['find_spec']).find_spec('fastembed') is not None,'platform':platform.system(), 'desktop_shell':bool(config.get('desktop_recorder')), 'home':str(store.home.resolve()),'overview':overview(store)})
             if path.path == '/api/memory/search':
                 from .intelligence import search
                 try:
@@ -311,7 +311,7 @@ def handler_factory(store, config, dashboard=False, upstreams=None):
                     except (ValueError,TypeError) as exc: return self.reply({'error':str(exc)},400)
                 if self.path == '/api/capture/start':
                     from .capture import start_background
-                    try: return self.reply(start_background(store.home))
+                    try: return self.reply(config["desktop_recorder"].start() if config.get("desktop_recorder") else start_background(store.home))
                     except (ValueError,OSError) as exc: return self.reply({'error':str(exc)},400)
                 if self.path == '/api/diary/note':
                     from .diary import save_note
@@ -322,7 +322,8 @@ def handler_factory(store, config, dashboard=False, upstreams=None):
                     try: return self.reply(favorite(store,self.path.split('/')[3],payload.get('favorite')))
                     except ValueError as exc: return self.reply({'error':str(exc)},400)
                 if self.path == "/api/capture/stop":
-                    store.capture_stop(True)
+                    if config.get("desktop_recorder"): config["desktop_recorder"].pause()
+                    else: store.capture_stop(True)
                     return self.reply({"ok": True})
                 if self.path == "/api/ask":
                     from .intelligence import ask
@@ -400,7 +401,7 @@ def handler_factory(store, config, dashboard=False, upstreams=None):
     return Handler
 
 
-def serve(store, config):
+def serve(store, config, *, on_listening=None):
     gateway = (ThreadingHTTPServer(("127.0.0.1", config["gateway_port"]), handler_factory(store, config))
                if config.get('enable_api_gateway',False) else None)
     try:
@@ -409,6 +410,7 @@ def serve(store, config):
         if gateway: gateway.server_close()
         raise
     stop = threading.Event()
+    config["dashboard_port"] = dashboard.server_port
     from . import mcp_http
     from .mcp_access import Access
     mcp_config=Access(store.home).config()
@@ -447,6 +449,8 @@ def serve(store, config):
     print(f"Your Wirebrain diary  http://127.0.0.1:{config['dashboard_port']}\nPress Ctrl+C to stop the diary.", flush=True)
     if gateway: print(f"Optional developer gateway: http://127.0.0.1:{config['gateway_port']}",flush=True)
     try:
+        if on_listening:
+            on_listening(dashboard)
         dashboard.serve_forever()
     except KeyboardInterrupt:
         pass

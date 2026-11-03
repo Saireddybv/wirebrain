@@ -210,6 +210,8 @@ async function loadLocal(){
     $('#setup-capture-status').textContent=stats.capture?.running?'Your recorder is running. Send a test message in each supported app and check that the complete reply appears.':`Recording is paused. Automatic setup supports Windows and macOS; macOS capture still needs real-device verification.`;
     const quotedHome="'"+localState.home.replaceAll("'",localState.platform==='Windows'?"''":"'\\''")+"'";
     $('#setup-command').textContent='wirebrain --home '+quotedHome+' capture --install-ca '+(localState.platform==='Windows'?'--local-capture':'--system-proxy');
+    $('#setup-command').closest('details').hidden=!!localState.desktop_shell;
+    if(localState.desktop_shell&&!stats.capture?.running)$('#setup-capture-status').textContent='Open the Wirebrain icon in the Windows tray and choose Turn on recording. You can pause here or in the tray.';
   }catch(error){$('#local-status').textContent=error.message;}
 }
 $('#local-setup').onclick=()=>{setMenu(false);$('#local-dialog').showModal();loadLocal();};

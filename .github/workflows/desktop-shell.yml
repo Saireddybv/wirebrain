@@ -1,0 +1,56 @@
+name: Windows desktop prototype
+on:
+  push:
+    branches: ['codex/windows-desktop-shell']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.11'
+      - run: python desktop/prepare_runtime.py
+      - run: python desktop/smoke.py
+      - working-directory: desktop
+        run: npx --yes --package @tauri-apps/cli@2.12.4 tauri build --bundles nsis
+      - name: Install and remove unsigned prototype on disposable runner
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem desktop/src-tauri/target/release/bundle/nsis/*.exe
+          $dest = Join-Path $env:LOCALAPPDATA WirebrainShellTrial
+          $installed = Start-Process $installer.FullName -ArgumentList "/S /D=$dest" -Wait -PassThru
+          if ($installed.ExitCode -ne 0) { throw "Installation failed" }
+          & "$dest/runtime/python.exe" -I -c "import wirebrain.desktop; import mitmproxy_windows"
+          if ($LASTEXITCODE) { throw "Installed runtime failed" }
+          $shellExe = Get-ChildItem $dest -File -Filter '*.exe' | Where-Object Name -ne 'uninstall.exe'
+          if (@($shellExe).Count -ne 1) { throw "Unexpected installed executable list" }
+          $shell = Start-Process $shellExe.FullName -PassThru
+          try {
+            $limit = (Get-Date).AddSeconds(60)
+            do {
+              if ($shell.HasExited) { throw "Shell exited during startup" }
+              $backend = Get-CimInstance Win32_Process -Filter "ParentProcessId = $($shell.Id) and Name='python.exe'"
+              if ($backend) {
+                $listener = Get-NetTCPConnection -OwningProcess $backend.ProcessId -State Listen -ErrorAction SilentlyContinue |
+                  Where-Object LocalAddress -eq '127.0.0.1' | Select-Object -First 1
+              }
+              if ($listener -and $shell.MainWindowTitle -eq 'Wirebrain') { break }
+              Start-Sleep -Milliseconds 500
+              $shell.Refresh()
+            } while ((Get-Date) -lt $limit)
+            if (!$listener -or $shell.MainWindowTitle -ne 'Wirebrain') { throw "No installed diary window or listener" }
+            $stats = Invoke-RestMethod "http://127.0.0.1:$($listener.LocalPort)/api/stats" -NoProxy
+            if ($stats.capture.running) { throw "First launch enabled capture" }
+          } finally {
+            if (!$shell.HasExited) { $shell.Kill(); $shell.WaitForExit() }
+          }
+          $child = Get-Process -Id $backend.ProcessId -ErrorAction SilentlyContinue
+          if ($child -and !$child.WaitForExit(15000)) { throw "Orphaned diary process" }
+          $removed = Start-Process "$dest/uninstall.exe" -ArgumentList "/S _?=$dest" -Wait -PassThru
+          if ($removed.ExitCode -ne 0) { throw "Uninstall failed" }
+          if ((Test-Path "$dest/runtime/python.exe") -or !(Test-Path "$env:USERPROFILE/.wirebrain/memory.sqlite3")) { throw "Incorrect uninstall result" }

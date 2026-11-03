@@ -7,6 +7,9 @@ build/
 .venv-capture/
 .venv-*/
 .wirebrain/
+desktop/src-tauri/target/
+desktop/src-tauri/runtime/
+desktop/src-tauri/gen/
 .env
 .env.*
 *.sqlite*

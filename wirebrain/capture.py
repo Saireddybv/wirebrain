@@ -8,7 +8,6 @@ import subprocess
 import sys
 import time
 import ssl
-import hashlib
 import uuid
 from pathlib import Path
 
@@ -145,8 +144,8 @@ def remove_ca(home):
     cert = Path(home) / "certificates" / "mitmproxy-ca-cert.pem"
     if cert.exists():
         der = ssl.PEM_cert_to_DER_cert(cert.read_text(encoding="ascii"))
-        fingerprint = hashlib.sha1(der).hexdigest()
-        subprocess.run(["certutil", "-user", "-delstore", "Root", fingerprint], check=True, capture_output=True)
+        from .windows_certificates import remove_root
+        remove_root(der)
     (Path(home)/"local-capture-authorized").unlink(missing_ok=True)
 
 

@@ -60,15 +60,17 @@ Path(sys.argv[2]).write_bytes(der)
         raise RuntimeError("Cancelling started recording")
     try:
         subprocess.run([installed_python,"-I","-c",setup,str(repo/"scripts"),str(der_path)],check=True)
-        button("Start recording").invoke()
-        answer_dialog(pid, win32con.IDOK)
-        stop = button("Stop recording")
-        if not running():
-            raise RuntimeError("Recorder is not running")
-        stop.invoke()
-        button("Start recording")
-        if running():
-            raise RuntimeError("Recorder did not stop")
+        # Verify Resume after the first worker and its driver guardian have finished.
+        for _ in range(2):
+            button("Start recording").invoke()
+            answer_dialog(pid, win32con.IDOK)
+            stop = button("Stop recording")
+            if not running():
+                raise RuntimeError("Recorder is not running")
+            stop.invoke()
+            button("Start recording")
+            if running():
+                raise RuntimeError("Recorder did not stop")
     finally:
         req=urllib.request.Request(base+"/api/capture/stop",data=b"{}",headers={"Content-Type":"application/json"})
         with api.open(req,timeout=5): pass

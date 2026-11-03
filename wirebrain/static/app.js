@@ -107,13 +107,15 @@ function updateWelcome(capture, running, starting, stopping){
 function setRecording(capture){
   const running=Boolean(capture.running),starting=!running&&!capture.error&&((startingAt&&Date.now()-startingAt<30000)||(capture.starting&&Date.now()/1000-capture.heartbeat<120));
   if(capture.error){$('#recording-error').textContent=capture.error;$('#recording-error').hidden=false;}
+  else if(running||starting){$('#recording-error').hidden=true;}
   if(running||capture.error)startingAt=0;
   $('#chip-dot').classList.toggle('off',!running);$('#chip-label').textContent=running?'Recording':starting?'Starting':desktopDiary?'Start recording':'Paused';
   $('#recording-chip').setAttribute('aria-label',`Recording ${running?'is on':starting?'is starting':'is paused'}. Open recording controls`);
   $('#recording-dot').classList.toggle('off',!running);$('#recording-title').textContent=running?'Your diary is remembering':starting?'Getting ready to remember':'Recording is paused';
   $('#capture-status').textContent=running?(capture.local_capture?'Process capture is active for Chrome, ChatGPT and Claude. Windows proxy settings are unchanged.':capture.system_proxy?'Your recorder is connected. Supported text conversations are saved on this computer.':'The recorder is open, but your apps are not connected to it yet.'):starting?'Your recorder is starting. This can take a few moments.':'Your memories are still here. Resume when you want to capture new conversations.';
   const setup=!running&&!starting&&capture.setup_needed;
-  const stopping=running&&capture.stopping;
+  const stopping=Boolean(capture.stopping);
+  if(stopping){$('#chip-label').textContent='Stopping…';$('#recording-chip').setAttribute('aria-label','Recording is stopping. Open recording controls');}
   updateWelcome(capture,running,starting,stopping);
   if(stopping){$('#recording-title').textContent='Pausing the recorder';$('#capture-status').textContent='Your recorder is stopping. You can resume in a moment.';}
   if(setup&&desktopDiary){$('#capture-status').textContent='Start recording to save supported AI conversations on this PC.';}

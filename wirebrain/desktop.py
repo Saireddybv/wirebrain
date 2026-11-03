@@ -63,6 +63,10 @@ class Recorder:
             if not closing or (self.worker and self.worker.poll() is None):
                 self.store.capture_stop(True)
 
+    def stopping(self):
+        with self.lock:
+            return bool(self.cancel and self.cancel.is_set() and self.worker and self.worker.poll() is None)
+
 
 def main():
     store = Store(os.environ.get("WIREBRAIN_HOME") or Path.home()/".wirebrain")

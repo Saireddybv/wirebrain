@@ -8,6 +8,23 @@ from wirebrain import driver_guard
 
 
 class DriverGuardTests(unittest.TestCase):
+    def test_installed_driver_accepts_extended_path_from_existing_journal(self):
+        service = r"C:\Users\tester\Wirebrain\WinDivert64.sys"
+        extended = "\\\\?\\" + service
+        with tempfile.TemporaryDirectory() as tmp:
+            marker = Path(tmp)/"driver.json"
+            for journal, runtime in ((extended, service), (service, extended)):
+                marker.write_text(json.dumps({"image":journal}))
+                with patch.object(driver_guard, "expected_image", return_value=runtime), \
+                     patch.object(driver_guard, "service_image", side_effect=[service, None]), \
+                     patch.object(driver_guard, "helper_active", return_value=False), \
+                     patch.dict("os.environ", {"SystemRoot":r"C:\Windows"}), \
+                     patch.object(driver_guard.subprocess, "run") as stop:
+                    stop.return_value.returncode = 0
+                    driver_guard.cleanup(marker)
+                    self.assertEqual(stop.call_args.args[0][-2:], ["stop","WinDivert"])
+                    self.assertFalse(marker.exists())
+
     def test_an_unowned_or_replaced_driver_is_never_stopped(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp)/'driver.json'

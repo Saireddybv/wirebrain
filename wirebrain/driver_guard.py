@@ -2,7 +2,7 @@
 import csv
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 import subprocess
 import sys
 import time
@@ -26,6 +26,18 @@ def expected_image():
     return Path(mitmproxy_windows.__file__).resolve().with_name("WinDivert64.sys")
 
 
+def image_path_key(value):
+    """Compare DOS drive paths from the service, Python and older ownership records."""
+    path = str(value)
+    for prefix in ("\\\\?\\", "\\??\\"):
+        if path.startswith(prefix):
+            tail = path[len(prefix):]
+            if len(tail) >= 3 and tail[0].isascii() and tail[0].isalpha() and tail[1:3] == ":\\":
+                path = tail
+            break
+    return PureWindowsPath(path)
+
+
 def helper_active():
     result = subprocess.run(["tasklist", "/FI", "IMAGENAME eq windows-redirector.exe",
                              "/FO", "CSV", "/NH"], capture_output=True, text=True, check=True)
@@ -37,7 +49,9 @@ def cleanup(marker):
     if not marker.exists():
         return
     expected = expected_image()
-    if json.loads(marker.read_text()) != {"image": str(expected)}:
+    record = json.loads(marker.read_text())
+    if (not isinstance(record, dict) or set(record) != {"image"} or not isinstance(record["image"], str)
+            or image_path_key(record["image"]) != image_path_key(expected)):
         raise ValueError("Driver ownership record changed; manual review required.")
     for _ in range(30):
         if not helper_active():
@@ -47,7 +61,7 @@ def cleanup(marker):
         raise ValueError("Redirector still active; retained ownership record for retry.")
     image = service_image()
     if image is not None:
-        if image != expected:
+        if image_path_key(image) != image_path_key(expected):
             raise ValueError("Another WinDivert installation is active; refusing to stop it.")
         # Only the fixed OS command receives elevation, never code from the diary.
         sc = str(Path(os.environ["SystemRoot"])/"System32"/"sc.exe")

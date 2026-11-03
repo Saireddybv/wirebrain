@@ -51,6 +51,13 @@ class Capture:
         self.usage.update(obj.get("usage", {}) or {})
 
 
+def capture_status(store):
+    state = store.capture_state()
+    if state.get('running'): return {**state, 'stopping': bool(store.capture_stop())}
+    from .capture import setup_needed
+    return {**state, 'setup_needed': setup_needed(store.home)}
+
+
 def handler_factory(store, config, dashboard=False, upstreams=None):
     upstreams = upstreams or PROVIDERS
 
@@ -164,7 +171,7 @@ def handler_factory(store, config, dashboard=False, upstreams=None):
                 with store.connect() as db:
                     meta_binary = db.execute("SELECT count FROM capture_routes WHERE route='meta websocket binary transport'").fetchone()
                 notices = ['Meta AI binary WebSocket traffic was detected. That transport is not supported yet; messages on that transport are not recorded.'] if meta_binary else []
-                return self.reply({**stats, "redact_on_wire": config["redact_on_wire"], "search": "SQLite full-text", "version": "0.1.0", "capture": store.capture_state(), "capture_diagnostics": store.capture_diagnostics(), "capture_notices": notices})
+                return self.reply({**stats, "redact_on_wire": config["redact_on_wire"], "search": "SQLite full-text", "version": "0.1.0", "capture": capture_status(store), "capture_diagnostics": store.capture_diagnostics(), "capture_notices": notices})
             if path.path == "/api/projects":
                 return self.reply(store.projects())
             if path.path == "/api/reflection":

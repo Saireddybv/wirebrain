@@ -9,12 +9,15 @@ from pathlib import Path
 from wirebrain.store import Store
 from wirebrain.webcapture import HOSTS, MAX_TEXT, WebStream, generation_request
 from wirebrain.extra_webcapture import stream_for, stream_content_type
+from wirebrain.claude_rpc import ClaudeTimeline, STREAM_TIMELINE, timeline_conversation
 
 
 class WebCapture:
     def __init__(self, store=None):
         self.store = store
         self.gemini_sessions = {}
+        self.claude_pending = {}
+        self.claude_streams = {}
 
     def load(self, loader):
         if self.store is None:
@@ -91,10 +94,35 @@ class WebCapture:
             route = f"{flow.request.host.lower()} {flow.request.method} /{'/'.join(pieces)}"
             with self.store.connect() as db:
                 db.execute("INSERT INTO capture_routes VALUES (?,?,1) ON CONFLICT(route) DO UPDATE SET keys=excluded.keys,count=count+1", (route, json.dumps(info)))
+        if flow.request.host.lower() == 'claude.ai' and urlsplit(flow.request.path).path == STREAM_TIMELINE:
+            # claude.ai answers a PerformAction prompt on a separate StreamTimeline call, and a
+            # new chat opens that stream first. Hold it unbound until its prompt arrives.
+            conversation = timeline_conversation(body)
+            if not conversation: return
+            pending = self.claude_pending.get(conversation)
+            state = {"id": pending["id"] if pending else None, "provider": "claude", "saved": 0, "conversation": conversation,
+                     "stream": ClaudeTimeline(pending["at"] * 1000 if pending else None, pending["message_id"] if pending else '')}
+            if len(self.claude_streams) >= 64: self.claude_streams.pop(next(iter(self.claude_streams)))
+            self.claude_streams[conversation] = state
+            flow.metadata["wirebrain"] = state
+            flow.request.headers["accept-encoding"] = "identity"
+            return
         try:
             capture = generation_request(flow.request.host, flow.request.path, body)
         except (TypeError, AttributeError):
             capture = None
+        if capture and capture.get("reply_on_stream"):
+            self.store.capture_seen(flow.request.host.lower(), prompt=True)
+            ident = self.store.add(capture["provider"], capture["model"], capture["prompt"], "Web conversations")
+            self.store.link_exchange(ident, capture["provider"], capture["conversation_id"], capture["message_id"], capture["parent_message_id"])
+            if len(self.claude_pending) >= 64: self.claude_pending.pop(next(iter(self.claude_pending)))
+            self.claude_pending[capture["conversation_id"]] = {"id": ident, "at": time.time(), "message_id": capture["message_id"]}
+            waiting = self.claude_streams.get(capture["conversation_id"])
+            if waiting and waiting["id"] is None and not waiting.get("closed"):
+                waiting["id"] = ident
+                waiting["stream"].bind(time.time() * 1000, capture["message_id"])
+            flow.metadata["wirebrain_prompt_only"] = ident
+            return
         if capture:
             self.store.capture_seen(flow.request.host.lower(), prompt=True)
             ident = self.store.add(capture["provider"], capture["model"], capture["prompt"], "Web conversations")
@@ -136,7 +164,7 @@ class WebCapture:
                     state["streamed"] = True
                     state["stream"].feed(chunk)
                     now = time.monotonic()
-                    if now - state["saved"] >= .5:
+                    if state["id"] is not None and now - state["saved"] >= .5:
                         self.store.update(state["id"], state["stream"].text, "streaming")
                         self.store.link_exchange(state['id'], state['provider'], state['stream'].conversation_id, response_message_id=state['stream'].response_message_id)
                         state["saved"] = now
@@ -163,6 +191,11 @@ class WebCapture:
                         self.store.repair_chatgpt_history(history)
                 except (ValueError, TypeError, AttributeError): pass
             return
+        if flow.metadata.get("wirebrain_prompt_only"):
+            # The reply to the prompt call is empty; the answer follows on StreamTimeline.
+            if flow.response.status_code >= 400:
+                self.store.update(flow.metadata["wirebrain_prompt_only"], "", "error")
+            return
         state = flow.metadata.get("wirebrain")
         if not state:
             return
@@ -173,12 +206,18 @@ class WebCapture:
             if content and len(content) <= MAX_TEXT:
                 stream.feed(content)
         stream.finish()
+        if state.get("conversation"):
+            state["closed"] = True
+            # A stream that opened after the reply, or before any prompt, has nothing to add.
+            if state["id"] is None or not stream.text: return
         status = "error" if flow.response.status_code >= 400 else stream.status
         if not stream_content_type(state['provider'], flow.response.headers.get("content-type", "")) and status != "error":
             status = "unsupported"
         if state.get("failed"): status = "capture_error"
         self.store.update(state["id"], stream.text, status)
         self.store.link_exchange(state['id'], state['provider'], stream.conversation_id, response_message_id=stream.response_message_id)
+        if state.get("conversation") and status in ("complete", "error", "truncated"):
+            self.claude_pending.pop(state["conversation"], None)
 
     def websocket_message(self, flow):
         if flow.request.host.lower() in ('grok.com','www.grok.com') and urlsplit(flow.request.path).path=='/ws/mgw/':
@@ -242,7 +281,7 @@ class WebCapture:
         if flow.metadata.get('wirebrain_channel'):
             flow.metadata['wirebrain_channel'].interrupted()
         state = flow.metadata.get("wirebrain")
-        if state:
+        if state and state["id"] is not None and (state["stream"].text or not state.get("conversation")):
             self.store.update(state["id"], state["stream"].text, "interrupted")
 
 

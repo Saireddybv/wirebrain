@@ -477,3 +477,10 @@ dialog::-webkit-scrollbar-thumb { border-radius: 8px; background: var(--subtle);
 .desktop-diary #recording-dialog .recording-card {border-radius:16px;padding:18px}
 .desktop-diary #recording-chip {font-weight:600}
 .desktop-diary #recording-toggle {border-radius:100px}
+@media(min-width:761px) {
+  .desktop-diary .topbar #recording-chip {width:auto;flex:none;padding-inline:12px}
+  .desktop-diary .topbar #recording-chip #chip-label {display:inline}
+}
+.desktop-diary .page-content:has(#desktop-welcome:not([hidden])) #timeline {display:none}
+.desktop-diary[data-theme="dark"] .sidebar .nav:not(.active) {color:#c9cbd3}
+.desktop-diary[data-theme="dark"] .topbar .glass-icon {background:#282c39;color:#f2f1f8;border:1px solid #444957}

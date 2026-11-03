@@ -27,5 +27,30 @@ jobs:
           if ($installed.ExitCode -ne 0) { throw "Installation failed" }
           & "$dest/runtime/python.exe" -I -c "import wirebrain.desktop; import mitmproxy_windows"
           if ($LASTEXITCODE) { throw "Installed runtime failed" }
-          $removed = Start-Process "$dest/uninstall.exe" -ArgumentList "/S" -Wait -PassThru
+          $shellExe = Get-ChildItem $dest -File -Filter '*.exe' | Where-Object Name -ne 'uninstall.exe'
+          if (@($shellExe).Count -ne 1) { throw "Unexpected installed executable list" }
+          $shell = Start-Process $shellExe.FullName -PassThru
+          try {
+            $limit = (Get-Date).AddSeconds(60)
+            do {
+              if ($shell.HasExited) { throw "Shell exited during startup" }
+              $backend = Get-CimInstance Win32_Process -Filter "ParentProcessId = $($shell.Id) and Name='python.exe'"
+              if ($backend) {
+                $listener = Get-NetTCPConnection -OwningProcess $backend.ProcessId -State Listen -ErrorAction SilentlyContinue |
+                  Where-Object LocalAddress -eq '127.0.0.1' | Select-Object -First 1
+              }
+              if ($listener -and $shell.MainWindowTitle -eq 'Wirebrain') { break }
+              Start-Sleep -Milliseconds 500
+              $shell.Refresh()
+            } while ((Get-Date) -lt $limit)
+            if (!$listener -or $shell.MainWindowTitle -ne 'Wirebrain') { throw "No installed diary window or listener" }
+            $stats = Invoke-RestMethod "http://127.0.0.1:$($listener.LocalPort)/api/stats" -NoProxy
+            if ($stats.capture.running) { throw "First launch enabled capture" }
+          } finally {
+            if (!$shell.HasExited) { $shell.Kill(); $shell.WaitForExit() }
+          }
+          $child = Get-Process -Id $backend.ProcessId -ErrorAction SilentlyContinue
+          if ($child -and !$child.WaitForExit(15000)) { throw "Orphaned diary process" }
+          $removed = Start-Process "$dest/uninstall.exe" -ArgumentList "/S _?=$dest" -Wait -PassThru
           if ($removed.ExitCode -ne 0) { throw "Uninstall failed" }
+          if ((Test-Path "$dest/runtime/python.exe") -or !(Test-Path "$env:USERPROFILE/.wirebrain/memory.sqlite3")) { throw "Incorrect uninstall result" }
